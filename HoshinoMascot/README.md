@@ -9,14 +9,20 @@
 |---|---|
 | 왼쪽 클릭 | 반응하고 말을 합니다. 자고 있으면 깨어납니다. 연타하면 투덜댑니다. |
 | 왼쪽 드래그 | 들어서 옮깁니다. 끌면 진자처럼 흔들리고, 놓으면 떨어집니다. 휙 던질 수도 있습니다. |
-| 오른쪽 클릭 | 메뉴: 말 걸기 / 낮잠 재우기 / 크게 / 작게 / 종료 |
+| 오른쪽 클릭 | 메뉴: 말 걸기 / 낮잠 재우기 / 앉기 / 크게 / 작게 / 종료 |
 | 말풍선 클릭 | 말풍선을 닫습니다. |
-| 가만히 두기 | 가끔 혼잣말을 하고, 돌아다니고(걷기 애니메이션이 있을 때), 3분이 지나면 낮잠을 잡니다. |
+| 가만히 두기 | 가끔 혼잣말을 하고, 돌아다니거나 앉아서 쉬고, 3분이 지나면 앉은 채로 꾸벅꾸벅 낮잠을 잡니다. |
 
 - 켤 때 시간대(아침/낮/저녁/밤)에 맞는 인사를 합니다.
-- 머리가 마우스 커서를 따라봅니다 (휴머노이드 모델 + IK Pass 켰을 때).
+- 머리가 마우스 커서를 따라봅니다.
 - 크기와 위치는 다음에 켤 때도 기억합니다.
-- 애니메이션이 하나도 없어도 숨쉬기, 찌그러짐, 흔들림 같은 효과로 움직입니다.
+- **애니메이션 파일이 없어도 움직입니다.** `MascotMotion`이 뼈를 직접 돌려서 졸리고 느긋한 호시노답게 움직입니다.
+  - 서 있을 때: 구부정하게 고개를 갸웃하고 체중을 좌우로 옮기며 흔들흔들
+  - 가끔 하는 행동: 기지개 하품, 서서 꾸벅꾸벅 졸다가 화들짝, 흔들흔들, 두리번
+  - 느릿느릿 뒤뚱뒤뚱 걷기, 손 짚고 기대앉기, 앉아서 고개 기대고 낮잠, 들리면 다리 대롱대롱, 떨어지면 팔 허우적
+- **표정이 상황마다 바뀝니다** (MMD 표정 셰이프 키를 씁니다).
+  - 평소엔 졸린 반쯤 감은 눈, 찌르면 "으헤~" 웃음(가끔 윙크·홍조), 연타하면 뾰로통, 들면 당황, 세게 떨어지면 어질어질, 하품할 때 입 크게 벌리고 눈물 찔끔, 잘 때 눈 감기
+  - 눈 깜빡임, 말할 때 입 모양(あいうえお)
 
 ---
 
@@ -68,7 +74,7 @@ https://github.com/kirurobo/UniWindowController.git#upm
    - lilToon이 있으면 lilToon으로, 없으면 Standard로 만듭니다. lilToon일 때 머리카락·옷·피부에는 윤곽선과 그림자를 넣습니다.
    - lilToon을 나중에 설치했으면 이 메뉴를 한 번 더 누르세요.
 4. 메뉴 `Tools > Hoshino Mascot > 2. Make Selected Model a Mascot` 을 누릅니다.
-   - 마스코트 스크립트 3개가 붙고, 카메라가 투명 배경용으로 설정됩니다.
+   - 마스코트 스크립트 4개(말풍선, 행동, 메뉴, 동작)가 붙고, 카메라가 투명 배경용으로 설정됩니다.
    - 캐릭터 키가 화면 높이의 1/4쯤 되게 카메라 크기를 맞춥니다.
 
 ### 6. 투명 창 켜기
@@ -92,7 +98,8 @@ https://github.com/kirurobo/UniWindowController.git#upm
 
 ## 애니메이션 붙이기 (선택)
 
-애니메이션이 없어도 동작하지만, 있으면 훨씬 살아 있는 느낌이 납니다.
+`MascotMotion`이 기본 동작을 다 만들어 주므로 꼭 필요하지는 않습니다. 더 자연스러운 동작을 원할 때 진짜 애니메이션을 붙이세요.
+Animator에 Animator Controller를 넣으면 `MascotMotion`은 저절로 꺼집니다.
 
 1. [Mixamo](https://www.mixamo.com)에서 대기(Idle), 걷기(Walking), 매달림(Hanging 등), 잠(Sleeping 등) 애니메이션을 받습니다.
    걷기는 **In Place**에 체크하고 받으세요.
@@ -104,9 +111,10 @@ https://github.com/kirurobo/UniWindowController.git#upm
 | `Speed` | Float | 걸을 때 1, 아니면 0 | Idle ↔ Walk (Speed > 0.5) |
 | `Grabbed` | Bool | 들려 있거나 떨어지는 중이면 true | Any State → Hanging |
 | `Sleeping` | Bool | 낮잠 중이면 true | Idle ↔ Sleep |
+| `Sitting` | Bool | 앉아 있으면 true | Idle ↔ Sit |
 | `Poke` | Trigger | 클릭했을 때 | Idle → 놀라는 동작 → Idle |
 
-- `Speed` 파라미터가 없으면 돌아다니지 않습니다. 미끄러지듯 걷는 걸 막기 위해서입니다.
+- Animator Controller를 쓸 때 `Speed` 파라미터가 없으면 돌아다니지 않고, `Sitting`이 없으면 앉지 않습니다. 미끄러지듯 걷는 걸 막기 위해서입니다.
 - 머리가 커서를 따라보게 하려면 Animator 창의 레이어 톱니바퀴에서 **IK Pass**를 켜세요.
 
 ---
@@ -121,6 +129,16 @@ https://github.com/kirurobo/UniWindowController.git#upm
 - `Sleep After Seconds`: 몇 초 동안 안 건드리면 잘지 (0이면 안 잠)
 - `Chatter Seconds Range`: 혼잣말 간격
 - `Walk Speed`, `Gravity`: 속도는 "초당 캐릭터 키" 단위라서 모델 크기와 상관없이 비슷하게 움직입니다.
+- `Sit Chance`, `Sit Seconds Range`: 서 있다가 앉을 확률과 앉아 있는 시간
+
+**Mascot Motion** (뼈를 직접 움직이는 동작)
+- `Steps Per Second`, `Leg Swing`, `Knee Bend`, `Arm Swing`: 걸음 빠르기와 다리·팔 흔드는 각도
+- `Sit Depth`: 앉을 때 엉덩이를 내리는 정도. 바닥에 파묻히거나 떠 있으면 조절하세요.
+- `Head Tilt`, `Slouch`: 고개 갸웃하는 각도, 구부정한 정도
+- `Idle Action Interval`: 하품·졸기 같은 행동 사이 간격(초)
+- `Blink Shapes`, `Talk Shapes`: 눈 감기, 말할 때 입 모양 셰이프 키 이름 (모델마다 다르면 여기에 적으세요)
+- `Faces`: 상황별 표정. `셰이프키이름:세기` 를 쉼표로 적습니다 (예: `笑い:1, ω:0.7`). 이름(normal, relaxed, happy, wink, blush, surprised, annoyed, dizzy, held, yawn, doze, sleep)은 바꾸지 마세요.
+- `Look At Cursor`: 커서 쳐다보기
 
 **Mascot Speech**
 - 상황별 대사 목록을 마음대로 고치거나 늘릴 수 있습니다.
@@ -167,14 +185,16 @@ https://github.com/kirurobo/UniWindowController.git#upm
 ```
 HoshinoMascot/
 ├─ Runtime/
-│  ├─ MascotController.cs   행동 (대기, 걷기, 들기, 떨어지기, 낮잠), 클릭과 드래그
+│  ├─ MascotController.cs   행동 (대기, 걷기, 앉기, 들기, 떨어지기, 낮잠), 클릭과 드래그
+│  ├─ MascotMotion.cs       애니메이션 파일 없이 뼈를 직접 움직이는 동작과 표정
 │  ├─ MascotSpeech.cs       말풍선과 대사
 │  ├─ MascotMenu.cs         오른쪽 클릭 메뉴
 │  ├─ MascotLookAt.cs       커서 따라보기 (자동으로 붙음)
 │  ├─ MascotInput.cs        마우스 입력 (클릭 통과 상태에서도 커서 위치를 읽음)
 │  └─ MascotUiSkin.cs       말풍선과 메뉴의 글꼴, 텍스처 생성
 └─ Editor/
-   └─ MascotSetup.cs        Tools > Hoshino Mascot 메뉴
+   ├─ MascotSetup.cs                  Tools > Hoshino Mascot 메뉴
+   └─ MascotMaterialPostprocessor.cs  MMD 모델 텍스처 연결 (메뉴 3에서 씀)
 ```
 
 ## 주의

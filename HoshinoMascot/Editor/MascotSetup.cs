@@ -57,6 +57,7 @@ namespace HoshinoMascot.EditorTools
             AddIfMissing<MascotSpeech>(model);
             AddIfMissing<MascotController>(model);
             AddIfMissing<MascotMenu>(model);
+            AddIfMissing<MascotMotion>(model);
 
             Undo.RecordObject(model.transform, "Place Mascot");
             model.transform.position = Vector3.zero;

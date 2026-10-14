@@ -22,7 +22,7 @@ namespace HoshinoMascot
         [Tooltip("크게/작게를 한 번 누를 때 바뀌는 배율")]
         public float scaleStep = 1.15f;
 
-        const int ItemCount = 5;
+        const int ItemCount = 6;
         const int CornerRadius = 10;
         const float HoverRadius = 6f;
         const float BorderWidth = 2f;
@@ -94,6 +94,7 @@ namespace HoshinoMascot
             var row = new Rect(panelRect.x + padding, panelRect.y + padding, panelRect.width - padding * 2f, itemHeight * scale);
             if (Item(ref row, "말 걸기")) controller.Talk();
             if (Item(ref row, controller.IsSleeping ? "깨우기" : "낮잠 재우기")) controller.ToggleSleep();
+            if (Item(ref row, controller.IsSitting ? "일어나기" : "앉기")) controller.ToggleSit();
             if (Item(ref row, "크게")) controller.ChangeScale(scaleStep);
             if (Item(ref row, "작게")) controller.ChangeScale(1f / scaleStep);
             if (Item(ref row, "종료")) controller.Quit();

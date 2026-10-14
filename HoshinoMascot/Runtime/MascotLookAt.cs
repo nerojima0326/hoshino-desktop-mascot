@@ -36,7 +36,8 @@ namespace HoshinoMascot
             MascotController.State state = controller.CurrentState;
             bool looking = state == MascotController.State.Idle
                            || state == MascotController.State.Walk
-                           || state == MascotController.State.Held;
+                           || state == MascotController.State.Held
+                           || state == MascotController.State.Sit;
             currentWeight = Mathf.MoveTowards(currentWeight, looking ? weight : 0f, Time.deltaTime * 2f);
 
             // 커서보다 조금 화면 앞쪽을 보게 해서, 모니터 앞의 선생님을 보는 느낌을 냅니다

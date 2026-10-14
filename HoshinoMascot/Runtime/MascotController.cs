@@ -10,18 +10,20 @@ namespace HoshinoMascot
     /// 끌어서 옮기거나 던질 수 있고, 오래 내버려 두면 낮잠을 잡니다.
     ///
     /// 모델의 가장 위 오브젝트에 붙이세요.
-    /// Animator 파라미터(Speed, Grabbed, Sleeping, Poke)는 전부 선택 사항이라 없으면 무시합니다.
+    /// 실제 몸동작은 MascotMotion(뼈를 직접 움직임)이나 Animator Controller가 맡습니다.
+    /// Animator 파라미터(Speed, Grabbed, Sleeping, Sitting, Poke)는 전부 선택 사항이라 없으면 무시합니다.
     /// </summary>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(MascotSpeech))]
     public class MascotController : MonoBehaviour
     {
-        public enum State { Idle, Walk, Held, Fall, Sleep }
+        public enum State { Idle, Walk, Held, Fall, Sleep, Sit }
 
         // Animator 파라미터 이름. Animator Controller에 없는 파라미터는 무시합니다.
         const string SpeedParam = "Speed";
         const string GrabbedParam = "Grabbed";
         const string SleepingParam = "Sleeping";
+        const string SittingParam = "Sitting";
         const string PokeParam = "Poke";
 
         const string ScaleKey = "HoshinoMascot.Scale";
@@ -43,7 +45,7 @@ namespace HoshinoMascot
         public float hardLandingSpeed = 7f;
         public float maxThrowSpeed = 12f;
 
-        [Header("걷기 (Animator에 Speed 파라미터가 있을 때만)")]
+        [Header("걷기 (MascotMotion이 있거나 Animator에 Speed 파라미터가 있을 때)")]
         public bool walkAround = true;
         public float walkSpeed = 0.4f;
         public Vector2 idleSecondsRange = new Vector2(5f, 12f);
@@ -52,6 +54,12 @@ namespace HoshinoMascot
         public float edgeMarginPixels = 150f;
         [Range(0f, 1f), Tooltip("걸을 때 옆으로 돌아서는 정도 (0 = 정면, 1 = 완전히 옆)")]
         public float walkTurnAmount = 0.7f;
+
+        [Header("앉기 (MascotMotion이 있거나 Animator에 Sitting 파라미터가 있을 때)")]
+        [Range(0f, 1f), Tooltip("가만히 서 있다가 앉을 확률")]
+        public float sitChance = 0.35f;
+        [Tooltip("앉아 있는 시간(초)")]
+        public Vector2 sitSecondsRange = new Vector2(20f, 60f);
 
         [Header("혼잣말과 낮잠")]
         public Vector2 chatterSecondsRange = new Vector2(90f, 240f);
@@ -80,6 +88,7 @@ namespace HoshinoMascot
         public Camera TargetCamera => targetCamera;
         public State CurrentState => state;
         public bool IsSleeping => state == State.Sleep;
+        public bool IsSitting => state == State.Sit;
         /// <summary>캐릭터와 같은 깊이에 놓인 마우스 커서의 월드 좌표</summary>
         public Vector3 CursorWorld { get; private set; }
         /// <summary>현재 캐릭터 키 (월드 단위). 속도 설정은 모두 이 값을 기준으로 합니다.</summary>
@@ -87,6 +96,7 @@ namespace HoshinoMascot
 
         MascotSpeech speech;
         MascotMenu menu;
+        MascotMotion motion;
         State state = State.Idle;
         float stateTimer;
         float walkDirection = 1f;
@@ -95,6 +105,7 @@ namespace HoshinoMascot
         float heightLocal = 1.6f;
         Vector3 topLocal;
         Transform head;
+        Vector3 headTopLocal;
         bool hasController;
         readonly HashSet<string> animatorParams = new HashSet<string>();
 
@@ -114,13 +125,16 @@ namespace HoshinoMascot
         float nextSleepTalkTime;
         bool quitting;
 
-        bool CanWalk => walkAround && animatorParams.Contains(SpeedParam);
+        bool HasMotion => motion != null && motion.enabled && motion.IsActive;
+        bool CanWalk => walkAround && (HasMotion || animatorParams.Contains(SpeedParam));
+        bool CanSit => HasMotion || animatorParams.Contains(SittingParam);
         float GroundY => groundOffsetPixels * MascotUiSkin.Scale;
 
         void Awake()
         {
             speech = GetComponent<MascotSpeech>();
             menu = GetComponent<MascotMenu>();
+            motion = GetComponent<MascotMotion>();
             if (targetCamera == null) targetCamera = Camera.main;
             if (animator == null) animator = GetComponentInChildren<Animator>();
             baseScale = transform.localScale;
@@ -145,6 +159,9 @@ namespace HoshinoMascot
                 }
             }
             SetupCollider();
+            // 말풍선은 머리 꼭대기에 붙어 다닙니다 (앉거나 졸 때도)
+            if (head == null && motion != null) head = motion.HeadBone;
+            if (head != null) headTopLocal = head.InverseTransformPoint(transform.TransformPoint(topLocal));
 
             float savedX = PlayerPrefs.GetFloat(PositionKey, 0.8f);
             if (targetCamera != null)
@@ -162,6 +179,7 @@ namespace HoshinoMascot
             yield return new WaitForSeconds(1f);
             if (targetCamera != null && state == State.Idle) PlaceOnGround(Screen.width * savedX);
             speech.SayGreeting();
+            React("happy", 3f);
         }
 
         void Update()
@@ -187,6 +205,7 @@ namespace HoshinoMascot
                 case State.Walk: UpdateWalk(dt); break;
                 case State.Fall: UpdateFall(dt); break;
                 case State.Sleep: UpdateSleep(); break;
+                case State.Sit: UpdateSit(); break;
             }
 
             UpdateSprings(Mathf.Min(dt, 1f / 30f));
@@ -214,6 +233,7 @@ namespace HoshinoMascot
                 return;
             }
             speech.SayChatter();
+            React(RandomHappyFace(), 2.5f);
             ScheduleChatter();
         }
 
@@ -221,7 +241,15 @@ namespace HoshinoMascot
         {
             Touch();
             if (state == State.Sleep) WakeUp();
-            else if (state == State.Idle || state == State.Walk) FallAsleep();
+            else if (state == State.Idle || state == State.Walk || state == State.Sit) FallAsleep();
+        }
+
+        public void ToggleSit()
+        {
+            Touch();
+            if (state == State.Sleep) WakeUp();
+            else if (state == State.Sit) StandUp();
+            else if (state == State.Idle || state == State.Walk) SitDown();
         }
 
         public void ChangeScale(float factor)
@@ -260,9 +288,7 @@ namespace HoshinoMascot
         {
             get
             {
-                Vector3 top = head != null
-                    ? head.position + targetCamera.transform.up * (Height * 0.15f)
-                    : transform.TransformPoint(topLocal);
+                Vector3 top = head != null ? head.TransformPoint(headTopLocal) : transform.TransformPoint(topLocal);
                 return targetCamera.WorldToScreenPoint(top);
             }
         }
@@ -313,7 +339,9 @@ namespace HoshinoMascot
             if (annoyed) pokeTimes.Clear();
 
             speech.SayRandom(annoyed ? speech.annoyedLines : speech.pokeLines);
+            React(annoyed ? "annoyed" : RandomHappyFace(), annoyed ? 3f : 2f);
             if (hasController && animatorParams.Contains(PokeParam)) animator.SetTrigger(PokeParam);
+            if (motion != null) motion.Poke();
             squashVelocity += 4f;
             if (state == State.Walk) EnterState(State.Idle);
         }
@@ -325,6 +353,7 @@ namespace HoshinoMascot
             velocity = Vector3.zero;
             EnterState(State.Held);
             speech.SayRandom(wasSleeping ? speech.wakeUpLines : speech.pickUpLines);
+            React("surprised", 0.7f);
             Touch();
         }
 
@@ -352,37 +381,72 @@ namespace HoshinoMascot
                 case State.Sleep:
                     nextSleepTalkTime = Time.time + sleepTalkSeconds;
                     break;
+                case State.Sit:
+                    stateTimer = Random.Range(sitSecondsRange.x, sitSecondsRange.y);
+                    break;
             }
         }
 
         void UpdateIdle()
         {
             StickToGround();
-
-            if (sleepAfterSeconds > 0f && Time.time - lastInteractionTime > sleepAfterSeconds)
-            {
-                FallAsleep();
-                return;
-            }
-
-            if (Time.time >= nextChatterTime)
-            {
-                if (!speech.IsShowing) speech.SayChatter();
-                ScheduleChatter();
-            }
+            if (DozeOrChatter()) return;
 
             if (stateTimer > 0f) return;
-            if (CanWalk)
+            if (CanWalk && Random.value < 0.5f)
             {
                 // 가장자리 근처에 있으면 화면 안쪽으로 걸어갑니다
                 float x = targetCamera.WorldToScreenPoint(transform.position).x / Mathf.Max(1, Screen.width);
                 walkDirection = x < 0.3f ? 1f : x > 0.7f ? -1f : (Random.value < 0.5f ? -1f : 1f);
                 EnterState(State.Walk);
             }
+            else if (CanSit && Random.value < sitChance)
+            {
+                SitDown();
+            }
             else
             {
                 EnterState(State.Idle);
             }
+        }
+
+        void UpdateSit()
+        {
+            StickToGround();
+            if (DozeOrChatter()) return;
+            if (stateTimer <= 0f) StandUp();
+        }
+
+        /// <summary>오래 안 건드렸으면 낮잠을 자고(true), 아니면 가끔 혼잣말을 합니다.</summary>
+        bool DozeOrChatter()
+        {
+            if (sleepAfterSeconds > 0f && Time.time - lastInteractionTime > sleepAfterSeconds)
+            {
+                FallAsleep();
+                return true;
+            }
+            if (Time.time >= nextChatterTime)
+            {
+                if (!speech.IsShowing)
+                {
+                    speech.SayChatter();
+                    if (Random.value < 0.4f) React(RandomHappyFace(), 2f);
+                }
+                ScheduleChatter();
+            }
+            return false;
+        }
+
+        void SitDown()
+        {
+            EnterState(State.Sit);
+            if (!speech.IsShowing && Random.value < 0.5f) speech.SayRandom(speech.sitDownLines);
+        }
+
+        void StandUp()
+        {
+            EnterState(State.Idle);
+            if (!speech.IsShowing && Random.value < 0.3f) speech.SayRandom(speech.standUpLines);
         }
 
         void UpdateWalk(float dt)
@@ -424,8 +488,16 @@ namespace HoshinoMascot
             StickToGround();
             EnterState(State.Idle);
             squashVelocity += Mathf.Clamp(impact * 0.6f, 1f, 6f);
-            if (impact > hardLandingSpeed) speech.SayRandom(speech.hardLandingLines);
-            else if (impact > 2f && Random.value < 0.5f) speech.SayRandom(speech.landLines);
+            if (impact > hardLandingSpeed)
+            {
+                speech.SayRandom(speech.hardLandingLines);
+                React("dizzy", 2.5f);
+            }
+            else if (impact > 2f && Random.value < 0.5f)
+            {
+                speech.SayRandom(speech.landLines);
+                React("happy", 1.5f);
+            }
             SavePosition();
         }
 
@@ -447,10 +519,23 @@ namespace HoshinoMascot
         {
             EnterState(State.Idle);
             speech.SayRandom(speech.wakeUpLines);
+            React("surprised", 1.2f);
             squashVelocity -= 3f; // 화들짝 늘어나는 느낌
         }
 
         void Touch() => lastInteractionTime = Time.time;
+
+        /// <summary>MascotMotion이 있으면 잠깐 표정을 바꿉니다.</summary>
+        void React(string face, float seconds)
+        {
+            if (motion != null) motion.React(face, seconds);
+        }
+
+        static string RandomHappyFace()
+        {
+            float roll = Random.value;
+            return roll < 0.6f ? "happy" : roll < 0.8f ? "blush" : "wink";
+        }
 
         void ScheduleChatter()
         {
@@ -468,7 +553,7 @@ namespace HoshinoMascot
                 float sideSpeed = Vector3.Dot(cursorVelocity, targetCamera.transform.right) / Mathf.Max(Height, 0.001f);
                 swingTarget = Mathf.Clamp(-sideSpeed * 8f, -maxSwingDegrees, maxSwingDegrees);
             }
-            else if (state == State.Sleep && !animatorParams.Contains(SleepingParam))
+            else if (state == State.Sleep && !HasMotion && !animatorParams.Contains(SleepingParam))
             {
                 swingTarget = 6f; // 잠자는 애니메이션이 없으면 살짝 기울여서 조는 느낌을 냅니다
             }
@@ -498,7 +583,7 @@ namespace HoshinoMascot
 
         void UpdateScale()
         {
-            float breathe = hasController ? 0f : Mathf.Sin(Time.time * 2.2f) * 0.01f; // 애니메이션이 없을 때 숨 쉬는 느낌
+            float breathe = hasController || HasMotion ? 0f : Mathf.Sin(Time.time * 2.2f) * 0.01f; // 애니메이션이 없을 때 숨 쉬는 느낌
             float wide = 1f + squash * 0.5f;
             float tall = 1f - squash + breathe;
             transform.localScale = Vector3.Scale(baseScale * userScale, new Vector3(wide, tall, wide));
@@ -510,6 +595,7 @@ namespace HoshinoMascot
             if (animatorParams.Contains(SpeedParam)) animator.SetFloat(SpeedParam, state == State.Walk ? 1f : 0f, 0.15f, dt);
             if (animatorParams.Contains(GrabbedParam)) animator.SetBool(GrabbedParam, state == State.Held || state == State.Fall);
             if (animatorParams.Contains(SleepingParam)) animator.SetBool(SleepingParam, state == State.Sleep);
+            if (animatorParams.Contains(SittingParam)) animator.SetBool(SittingParam, state == State.Sit);
         }
 
         // ───────── 좌표 ─────────

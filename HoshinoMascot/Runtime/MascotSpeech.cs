@@ -78,6 +78,28 @@ namespace HoshinoMascot
             "으헤?! 안 잤어~ 눈만 감고 있었어~",
             "응…? 벌써 일어날 시간이야~?",
         };
+        public string[] sitDownLines =
+        {
+            "으헤~ 잠깐 앉아서 쉴게~",
+            "역시 앉는 게 편하다니까~",
+            "다리 아파~ 아저씨는 좀 앉을래~",
+        };
+        public string[] standUpLines =
+        {
+            "영차~ 슬슬 일어나 볼까~",
+            "으헤~ 엉덩이가 저려~",
+        };
+        public string[] yawnLines =
+        {
+            "하아암~ 으헤~ 졸려~",
+            "하암… 아저씨는 벌써 졸려~",
+            "으헤~ 하품이 자꾸 나오네~",
+        };
+        public string[] dozeWakeLines =
+        {
+            "으헤?! 안 졸았어~ 진짜야~",
+            "…앗, 방금 잠깐 졸았나~?",
+        };
         public string[] chatterLines =
         {
             "오늘 날씨, 낮잠 자기 딱 좋네~",
@@ -130,6 +152,8 @@ namespace HoshinoMascot
         float builtScale;
 
         public bool IsShowing => text != null && Time.time < hideAt;
+        /// <summary>글자가 아직 하나씩 나타나는 중인지 (입을 움직일 때 씁니다)</summary>
+        public bool IsTalking => IsShowing && Time.time - shownAt < text.Length / Mathf.Max(1f, charactersPerSecond);
 
         void Awake() => controller = GetComponent<MascotController>();
 

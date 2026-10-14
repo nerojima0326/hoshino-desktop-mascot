@@ -1,0 +1,29 @@
+# 모델 이용 규약상 재배포 금지: 모델, 텍스처, 변환 결과는 올리지 않습니다
+*.pmx
+*.pmd
+*.vmd
+*.fbx
+*.blend
+*.blend1
+*.vrm
+*.zip
+textures/
+*_Materials/
+
+# 호시노 모델이 나오는 렌더 이미지
+preview_*.png
+head_compare.png
+
+# 개인 작업 메모 (PC 경로, 대화 기록)
+CLAUDE.md
+chat-log.md
+
+# 이 폴더 안에 Unity 프로젝트를 만들 경우
+Library/
+Temp/
+Logs/
+UserSettings/
+Build/
+obj/
+*.csproj
+*.sln

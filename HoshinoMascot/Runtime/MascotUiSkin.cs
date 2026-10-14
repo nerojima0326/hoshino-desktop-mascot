@@ -28,18 +28,20 @@ namespace HoshinoMascot
                 float dpi = UnityEngine.Device.Screen.dpi;
                 if (dpi > 0f) return Mathf.Max(1f, dpi / (mobile ? 160f : 96f));
                 // dpi를 못 읽는 기기는 화면 짧은 변을 360dp로 봅니다
-                return mobile ? Mathf.Max(1f, Mathf.Min(Screen.width, Screen.height) / 360f) : 1f;
+                return mobile ? Mathf.Max(1f, Mathf.Min(MascotScreen.Width, MascotScreen.Height) / 360f) : 1f;
             }
         }
 
         /// <summary>
         /// 노치, 둥근 모서리, 홈 표시줄을 뺀 영역 (Unity 화면 좌표, 왼쪽 아래가 원점).
-        /// 데스크톱에서는 화면 전체입니다.
+        /// 데스크톱과 Android 홈 화면 창에서는 Unity 화면 전체입니다.
         /// </summary>
         public static Rect SafeArea
         {
             get
             {
+                // 홈 화면 창은 MascotOverlay가 표시줄을 피해서 놓습니다
+                if (MascotOverlay.IsOverlay) return new Rect(0f, 0f, Screen.width, Screen.height);
                 Rect area = UnityEngine.Device.Screen.safeArea;
                 return area.width > 0f && area.height > 0f ? area : new Rect(0f, 0f, Screen.width, Screen.height);
             }

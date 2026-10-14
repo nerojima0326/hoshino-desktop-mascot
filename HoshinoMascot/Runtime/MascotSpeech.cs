@@ -118,6 +118,16 @@ namespace HoshinoMascot
             "그럼 아저씨는 먼저 갈게~ 또 봐, 선생님~",
         };
 
+        [Header("홈 화면에 띄우기 (Android)")]
+        public string[] overlayPermissionLines =
+        {
+            "홈 화면에 놀러 가려면 '다른 앱 위에 표시'를 허용해 줘~",
+        };
+        public string[] overlayDeniedLines =
+        {
+            "으헤~ 허용 안 해 주면 홈 화면엔 못 가~",
+        };
+
         [Header("말풍선 모양 (100% 배율 기준 픽셀)")]
         [Tooltip("말풍선과 메뉴에 쓸 글꼴 (TTF). 비워 두면 OS 글꼴(맑은 고딕 등)을 씁니다. 한글이 네모로 나오면 한글 글꼴을 넣으세요.")]
         public Font font;

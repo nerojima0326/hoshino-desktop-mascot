@@ -30,9 +30,10 @@ namespace HoshinoMascot
         const float Padding = 6f;
 
         MascotController controller;
+        MascotOverlay overlay;
         bool open;
         bool openedByTouch;
-        Vector2 openPosition; // GUI 좌표 (위쪽이 0)
+        Vector2 openPosition; // 기기 화면 전체 좌표 (MascotScreen). 홈 화면에 띄웠을 때 창이 옮겨져도 제자리에 있게 합니다
         Rect panelRect;
 
         GUIStyle panelStyle;
@@ -45,10 +46,16 @@ namespace HoshinoMascot
 
         // iOS는 앱이 스스로 종료하면 안 되므로 "종료"를 뺍니다
         static bool CanQuit => UnityEngine.Device.Application.platform != RuntimePlatform.IPhonePlayer;
-        static int ItemCount => CanQuit ? 6 : 5;
+        // Android 앱 화면에서만 "홈 화면에 띄우기"가 있습니다
+        bool CanFloat => overlay != null && MascotOverlay.CanStart;
+        int ItemCount => 5 + (CanFloat ? 1 : 0) + (CanQuit ? 1 : 0);
         float ItemHeight => MascotInput.IsMobile ? touchItemHeight : itemHeight;
 
-        void Awake() => controller = GetComponent<MascotController>();
+        void Awake()
+        {
+            controller = GetComponent<MascotController>();
+            overlay = GetComponent<MascotOverlay>();
+        }
 
         void OnDestroy() => DestroyTextures();
 
@@ -71,7 +78,7 @@ namespace HoshinoMascot
 
             if (MascotInput.RightDown)
             {
-                if (controller.IsPointerOnCharacter(cursor)) Open(cursor);
+                if (controller.IsPointerOnCharacter(cursor)) Open(MascotScreen.ToDisplay(cursor));
                 else open = false;
             }
             else if (MascotInput.LeftDown)
@@ -81,12 +88,13 @@ namespace HoshinoMascot
         }
 
         /// <summary>
-        /// Unity 화면 좌표(왼쪽 아래가 원점)에 메뉴를 엽니다.
+        /// 기기 화면 전체 좌표(MascotScreen, 왼쪽 아래가 원점)에 메뉴를 엽니다. 데스크톱에서는 Unity 화면 좌표와 같습니다.
         /// byTouch면 손가락에 가리지 않게 손가락 위쪽에 엽니다.
         /// </summary>
-        public void Open(Vector2 screenPosition, bool byTouch = false)
+        public void Open(Vector2 displayPosition, bool byTouch = false)
         {
-            openPosition = new Vector2(screenPosition.x, Screen.height - screenPosition.y);
+            if (overlay == null) overlay = GetComponent<MascotOverlay>(); // 실행 중에 붙었을 수 있습니다
+            openPosition = displayPosition;
             openedByTouch = byTouch;
             open = true;
             LayoutPanel(MascotUiSkin.Scale);
@@ -111,6 +119,7 @@ namespace HoshinoMascot
             if (Item(ref row, controller.IsSitting ? "일어나기" : "앉기")) controller.ToggleSit();
             if (Item(ref row, "크게")) controller.ChangeScale(scaleStep);
             if (Item(ref row, "작게")) controller.ChangeScale(1f / scaleStep);
+            if (CanFloat && Item(ref row, "홈 화면에 띄우기")) overlay.RequestStart();
             if (CanQuit && Item(ref row, "종료")) controller.Quit();
         }
 
@@ -127,8 +136,9 @@ namespace HoshinoMascot
             float panelWidth = width * scale;
             float panelHeight = ItemCount * ItemHeight * scale + Padding * scale * 2f;
             Rect safe = MascotUiSkin.SafeGuiRect;
-            float x = openPosition.x;
-            float y = openPosition.y;
+            Vector2 window = MascotScreen.ToWindow(openPosition);
+            float x = window.x;
+            float y = Screen.height - window.y; // GUI 좌표는 위쪽이 0
             if (openedByTouch)
             {
                 // 손가락 위쪽 가운데에 엽니다. 위에 자리가 없으면 아래쪽에 엽니다.

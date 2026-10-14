@@ -25,7 +25,8 @@ namespace HoshinoMascot
 
         void Start()
         {
-            if (!MascotInput.IsMobile)
+            // 홈 화면에 띄운 쪽은 배경 없이 투명하게 둡니다 (MascotOverlay가 맡습니다)
+            if (!MascotInput.IsMobile || MascotOverlay.IsOverlay)
             {
                 enabled = false;
                 return;

@@ -105,6 +105,10 @@ namespace HoshinoMascot
         public Vector3 LookTargetWorld { get; private set; }
         /// <summary>현재 캐릭터 키 (월드 단위). 속도 설정은 모두 이 값을 기준으로 합니다.</summary>
         public float Height => heightLocal * Mathf.Abs(baseScale.y) * userScale;
+        /// <summary>두 손가락으로 크기를 바꾸는 중인지</summary>
+        public bool IsPinching => pinchDistance > 0f;
+        /// <summary>발 위치 (기기 화면 전체 좌표, MascotScreen)</summary>
+        public Vector2 FeetDisplayPosition => WorldToDisplay(transform.position);
 
         MascotSpeech speech;
         MascotMenu menu;
@@ -145,7 +149,7 @@ namespace HoshinoMascot
         bool HasMotion => motion != null && motion.enabled && motion.IsActive;
         bool CanWalk => walkAround && (HasMotion || animatorParams.Contains(SpeedParam));
         bool CanSit => HasMotion || animatorParams.Contains(SittingParam);
-        float GroundY => MascotUiSkin.SafeArea.yMin
+        float GroundY => MascotScreen.SafeArea.yMin
                          + (MascotInput.IsMobile ? mobileGroundOffsetPixels : groundOffsetPixels) * MascotUiSkin.Scale;
 
         void Awake()
@@ -157,6 +161,10 @@ namespace HoshinoMascot
             if (animator == null) animator = GetComponentInChildren<Animator>();
             // 모바일은 투명 창이 안 되므로 배경을 깔아 주는 MascotMobile이 없으면 기본값으로 붙입니다
             if (MascotInput.IsMobile && GetComponent<MascotMobile>() == null) gameObject.AddComponent<MascotMobile>();
+#if UNITY_ANDROID
+            // 홈 화면에 띄우기(MascotOverlay)도 없으면 붙입니다
+            if (GetComponent<MascotOverlay>() == null) gameObject.AddComponent<MascotOverlay>();
+#endif
             baseScale = transform.localScale;
             userScale = Mathf.Clamp(PlayerPrefs.GetFloat(ScaleKey, 1f), minScale, maxScale);
 
@@ -188,7 +196,7 @@ namespace HoshinoMascot
             {
                 facing = FacingRotation(0f);
                 transform.rotation = facing;
-                PlaceOnGround(Screen.width * savedX);
+                PlaceOnGround(MascotScreen.Width * savedX);
                 CursorWorld = ScreenToWorld(MascotInput.CursorPosition);
             }
             EnterState(State.Idle);
@@ -197,7 +205,7 @@ namespace HoshinoMascot
 
             // UniWindowController가 창을 모니터 크기로 키울 때까지 잠깐 기다린 뒤 자리를 다시 잡고 인사합니다
             yield return new WaitForSeconds(1f);
-            if (targetCamera != null && state == State.Idle) PlaceOnGround(Screen.width * savedX);
+            if (targetCamera != null && state == State.Idle) PlaceOnGround(MascotScreen.Width * savedX);
             speech.SayGreeting();
             React("happy", 3f);
         }
@@ -211,10 +219,11 @@ namespace HoshinoMascot
             }
 
             float dt = Time.deltaTime;
-            Vector2 cursor = MascotInput.CursorPosition;
+            Vector2 pointer = MascotInput.CursorPosition; // Unity 창 좌표 (말풍선, 메뉴, 클릭 판정)
+            Vector2 cursor = MascotScreen.ToDisplay(pointer); // 기기 화면 전체 좌표 (행동)
             Vector3 cursorWorld = ScreenToWorld(cursor);
-            // 터치는 손가락을 댄 순간 위치가 순간이동하므로 그 프레임은 속도에 넣지 않습니다
-            if (MascotInput.LeftDown) cursorVelocity = Vector3.zero;
+            // 터치는 손가락을 댄 순간 위치가 순간이동하고, 창을 옮긴 프레임은 위치가 튈 수 있어서 속도에 넣지 않습니다
+            if (MascotInput.LeftDown || MascotScreen.WindowChanged) cursorVelocity = Vector3.zero;
             else if (dt > 0f) cursorVelocity = Vector3.Lerp(cursorVelocity, (cursorWorld - CursorWorld) / dt, 0.5f);
             CursorWorld = cursorWorld;
             UpdateLookTarget();
@@ -225,7 +234,7 @@ namespace HoshinoMascot
                 if (menu != null && menu.IsOpen) menu.Close();
                 else Quit();
             }
-            if (!HandlePinch()) HandlePointer(cursor);
+            if (!HandlePinch()) HandlePointer(pointer, cursor);
 
             stateTimer -= dt;
             switch (state)
@@ -318,6 +327,14 @@ namespace HoshinoMascot
             squashVelocity -= 2f;
         }
 
+        /// <summary>위치와 크기를 바로 저장합니다.</summary>
+        public void SaveState()
+        {
+            SavePosition();
+            PlayerPrefs.SetFloat(ScaleKey, userScale);
+            PlayerPrefs.Save();
+        }
+
         public void Quit()
         {
             if (quitting) return;
@@ -356,11 +373,12 @@ namespace HoshinoMascot
 
         // ───────── 입력 ─────────
 
-        void HandlePointer(Vector2 cursor)
+        /// <summary>pointer는 Unity 창 좌표, cursor는 기기 화면 전체 좌표입니다.</summary>
+        void HandlePointer(Vector2 pointer, Vector2 cursor)
         {
             if (quitting) return;
 
-            if (MascotInput.LeftDown && !IsOverUi(cursor) && IsPointerOnCharacter(cursor))
+            if (MascotInput.LeftDown && !IsOverUi(pointer) && IsPointerOnCharacter(pointer))
             {
                 pressing = true;
                 pressPosition = cursor;
@@ -498,7 +516,7 @@ namespace HoshinoMascot
             if (CanWalk && Random.value < 0.5f)
             {
                 // 가장자리 근처에 있으면 화면 안쪽으로 걸어갑니다
-                float x = targetCamera.WorldToScreenPoint(transform.position).x / Mathf.Max(1, Screen.width);
+                float x = WorldToDisplay(transform.position).x / Mathf.Max(1f, MascotScreen.Width);
                 walkDirection = x < 0.3f ? 1f : x > 0.7f ? -1f : (Random.value < 0.5f ? -1f : 1f);
                 EnterState(State.Walk);
             }
@@ -555,8 +573,8 @@ namespace HoshinoMascot
         {
             transform.position += targetCamera.transform.right * (walkDirection * walkSpeed * Height * dt);
 
-            float x = targetCamera.WorldToScreenPoint(transform.position).x;
-            Rect safe = MascotUiSkin.SafeArea;
+            float x = WorldToDisplay(transform.position).x;
+            Rect safe = MascotScreen.SafeArea;
             // 좁은 휴대폰 화면에서도 걸을 자리가 남게 여백은 화면 너비의 20%까지만 씁니다
             float margin = Mathf.Min(edgeMarginPixels * MascotUiSkin.Scale, safe.width * 0.2f);
             if ((x < safe.xMin + margin && walkDirection < 0f) || (x > safe.xMax - margin && walkDirection > 0f))
@@ -575,13 +593,14 @@ namespace HoshinoMascot
             velocity -= right * (Vector3.Dot(velocity, right) * 0.5f * dt); // 공기 저항
             transform.position += velocity * dt;
 
-            // 화면 가장자리와 천장에서 튕깁니다
-            Vector3 screen = targetCamera.WorldToScreenPoint(transform.position);
+            // 화면 가장자리와 천장(휴대폰은 노치와 상태 표시줄 아래)에서 튕깁니다
+            Vector3 screen = WorldToDisplay(transform.position);
+            Rect bounds = MascotScreen.SafeArea;
             float sideSpeed = Vector3.Dot(velocity, right);
-            if ((screen.x < 0f && sideSpeed < 0f) || (screen.x > Screen.width && sideSpeed > 0f))
+            if ((screen.x < bounds.xMin && sideSpeed < 0f) || (screen.x > bounds.xMax && sideSpeed > 0f))
                 velocity -= right * (sideSpeed * 1.5f);
             float upSpeed = Vector3.Dot(velocity, up);
-            if (screen.y > Screen.height && upSpeed > 0f)
+            if (screen.y > bounds.yMax && upSpeed > 0f)
                 velocity -= up * (upSpeed * 1.5f);
 
             if (screen.y > GroundY || upSpeed > 0f) return;
@@ -703,16 +722,26 @@ namespace HoshinoMascot
         }
 
         // ───────── 좌표 ─────────
+        // 행동은 기기 화면 전체 좌표(MascotScreen)로 계산합니다. 데스크톱과 앱 화면에서는 Unity 화면 좌표와 같습니다.
 
-        Vector3 ScreenToWorld(Vector2 screenPosition)
+        /// <summary>기기 화면 전체 좌표를 캐릭터와 같은 깊이의 월드 좌표로 바꿉니다.</summary>
+        Vector3 ScreenToWorld(Vector2 displayPosition)
         {
+            Vector2 window = MascotScreen.ToWindow(displayPosition);
             float depth = targetCamera.WorldToScreenPoint(transform.position).z;
-            return targetCamera.ScreenToWorldPoint(new Vector3(screenPosition.x, screenPosition.y, depth));
+            return targetCamera.ScreenToWorldPoint(new Vector3(window.x, window.y, depth));
+        }
+
+        Vector3 WorldToDisplay(Vector3 world)
+        {
+            Vector3 screen = targetCamera.WorldToScreenPoint(world);
+            Vector2 display = MascotScreen.ToDisplay(screen);
+            return new Vector3(display.x, display.y, screen.z);
         }
 
         void PlaceOnGround(float screenX)
         {
-            Rect safe = MascotUiSkin.SafeArea;
+            Rect safe = MascotScreen.SafeArea;
             float padding = 40f * MascotUiSkin.Scale;
             float x = Mathf.Clamp(screenX, safe.xMin + padding, Mathf.Max(safe.xMin + padding, safe.xMax - padding));
             transform.position = ScreenToWorld(new Vector2(x, GroundY));
@@ -720,13 +749,13 @@ namespace HoshinoMascot
 
         void StickToGround()
         {
-            PlaceOnGround(targetCamera.WorldToScreenPoint(transform.position).x);
+            PlaceOnGround(WorldToDisplay(transform.position).x);
         }
 
         void SavePosition()
         {
-            if (targetCamera == null || Screen.width <= 0) return;
-            float x = targetCamera.WorldToScreenPoint(transform.position).x / Screen.width;
+            if (targetCamera == null || MascotScreen.Width <= 0f) return;
+            float x = WorldToDisplay(transform.position).x / MascotScreen.Width;
             PlayerPrefs.SetFloat(PositionKey, Mathf.Clamp01(x));
         }
 
@@ -778,7 +807,8 @@ namespace HoshinoMascot
 #if UNITY_EDITOR
             UnityEditor.EditorApplication.isPlaying = false;
 #else
-            Application.Quit();
+            if (MascotOverlay.IsOverlay) MascotOverlay.StopOverlay(); // 홈 화면의 호시노만 내립니다
+            else Application.Quit();
 #endif
         }
     }

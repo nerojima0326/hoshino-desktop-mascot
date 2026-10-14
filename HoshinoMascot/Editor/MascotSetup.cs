@@ -59,6 +59,7 @@ namespace HoshinoMascot.EditorTools
             AddIfMissing<MascotMenu>(model);
             AddIfMissing<MascotMotion>(model);
             AddIfMissing<MascotMobile>(model);
+            AddIfMissing<MascotOverlay>(model);
 
             Undo.RecordObject(model.transform, "Place Mascot");
             model.transform.position = Vector3.zero;
@@ -76,8 +77,37 @@ namespace HoshinoMascot.EditorTools
                 "1. UniWindowController 프리팹을 씬에 추가\n" +
                 "2. Is Transparent, Is Topmost, Should Fit Monitor 체크\n" +
                 "3. Windows로 빌드해서 실행 (에디터에서는 배경이 투명해지지 않아요)\n\n" +
-                "모바일(Android/iOS)은 이대로 빌드하면 됩니다. 배경은 Mascot Mobile에서 바꿔요.",
+                "모바일(Android/iOS)은 이대로 빌드하면 됩니다. 배경은 Mascot Mobile에서 바꿔요.\n" +
+                "Android 홈 화면에 띄우려면 4. Apply Android Settings 도 눌러 주세요.",
                 "확인");
+        }
+
+        [MenuItem("Tools/Hoshino Mascot/4. Apply Android Settings")]
+        static void ApplyAndroidSettings()
+        {
+            // 홈 화면에 띄웠을 때 캐릭터가 없는 곳이 투명해야 홈 화면이 보입니다
+            PlayerSettings.preserveFramebufferAlpha = true;
+            bool entryChanged = UseActivityEntryPoint();
+
+            EditorUtility.DisplayDialog(Title,
+                "Android 설정을 바꿨어요.\n\n" +
+                "- Preserve Framebuffer Alpha: 켬 (홈 화면에 띄울 때 배경을 투명하게)\n" +
+                (entryChanged ? "- Application Entry Point: Activity (홈 화면 띄우기가 쓰는 방식)\n" : "") +
+                "\n빌드할 때 \"다른 앱 위에 표시\" 권한과 홈 화면 서비스가 저절로 들어갑니다.",
+                "확인");
+        }
+
+        /// <summary>
+        /// Unity 2023.1 이상은 Android 실행 방식을 Activity와 GameActivity 중에서 고릅니다.
+        /// 홈 화면 띄우기는 Activity 방식의 Unity 플레이어를 쓰므로 Activity로 맞춥니다.
+        /// (그 전 버전에는 이 설정이 없어서 리플렉션으로 찾습니다)
+        /// </summary>
+        static bool UseActivityEntryPoint()
+        {
+            PropertyInfo property = typeof(PlayerSettings.Android).GetProperty("applicationEntry", BindingFlags.Public | BindingFlags.Static);
+            if (property == null || !property.PropertyType.IsEnum) return false;
+            property.SetValue(null, Enum.Parse(property.PropertyType, "Activity"));
+            return true;
         }
 
         static void AddIfMissing<T>(GameObject target) where T : Component

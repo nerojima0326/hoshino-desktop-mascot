@@ -117,10 +117,13 @@ Android는 "다른 앱 위에 표시" 권한으로 [홈 화면에 띄울](#andro
 ### 빌드
 1. 위 1~5단계는 그대로 합니다. 6단계(UniWindowController)는 모바일만 쓴다면 건너뛰어도 됩니다.
    - 씬에 UniWindowController가 있어도 됩니다. 모바일 빌드에서는 그 스크립트가 빠지고, 실행할 때 로그에 스크립트가 없다는 경고만 뜹니다.
-2. Unity Hub에서 쓰는 Unity 버전에 **Android Build Support** (또는 **iOS Build Support**) 모듈을 추가합니다.
-3. `File > Build Profiles` (Unity 2022는 `File > Build Settings`) → **Android** (또는 **iOS**) → **Switch Platform**
-4. Android: 휴대폰의 개발자 옵션에서 USB 디버깅을 켜고 연결한 뒤 **Build And Run**. 또는 **Build**로 만든 `.apk`를 휴대폰에 옮겨 설치합니다.
-   iOS: **Build**로 Xcode 프로젝트를 만들고, Mac의 Xcode에서 서명한 뒤 기기에 설치합니다.
+2. Unity Hub에서 쓰는 Unity 버전에 **Android Build Support** (또는 **iOS Build Support**) 모듈을 추가합니다. Android는 그 아래 OpenJDK, Android SDK & NDK Tools도 체크하세요.
+3. **Android (원클릭)**: 호시노가 있는 씬을 열고 `Tools > Hoshino Mascot > 5. Build Android APK`
+   - Android 설정 맞추기(4번 메뉴와 같음), 빌드 대상 바꾸기, APK 빌드를 한 번에 합니다.
+   - **APK만 만들기**: 저장한 `.apk`를 휴대폰에 옮겨서 열면 설치됩니다 (처음에는 "출처를 알 수 없는 앱 설치" 허용).
+   - **만들고 휴대폰에 설치**: 휴대폰의 개발자 옵션에서 USB 디버깅을 켜고 연결해 두면 빌드한 뒤 바로 설치하고 실행합니다.
+   - 처음 빌드는 10분 넘게 걸릴 수 있습니다.
+4. **iOS**: `File > Build Profiles` (Unity 2022는 `File > Build Settings`) → **iOS** → **Switch Platform** → **Build**로 Xcode 프로젝트를 만들고, Mac의 Xcode에서 서명한 뒤 기기에 설치합니다.
 
 > 에디터에서 터치를 미리 보려면 Game 창 왼쪽 위 드롭다운에서 **Simulator**를 고르세요 (Device Simulator). 마우스가 터치처럼 동작해서 탭, 끌기, 길게 누르기, 노치를 피하는 배치를 확인할 수 있습니다. 두 손가락 핀치는 실제 기기에서 확인하세요.
 
@@ -135,12 +138,12 @@ Android는 "다른 앱 위에 표시" 권한으로 [홈 화면에 띄울](#andro
 
 > 아직 실제 기기에서 확인하지 못한 기능입니다. 안 되면 아래 [문제 해결](#문제-해결)을 보세요.
 
-**준비 (한 번만)**
-1. `Tools > Hoshino Mascot > 4. Apply Android Settings`
-   - **Preserve Framebuffer Alpha**를 켭니다. 꺼져 있으면 캐릭터 주변이 검게 나옵니다.
-   - Unity 2023 이상은 **Application Entry Point**를 **Activity**로 바꿉니다 (홈 화면 띄우기가 쓰는 방식).
-2. (권장) `Player Settings > Splash Image > Show Splash Screen`을 끄세요. 켜 두면 홈 화면에 띄울 때마다 Unity 로고가 잠깐 홈 화면 위에 나옵니다. (Unity 2022 Personal은 끌 수 없습니다)
-3. 그대로 Android로 빌드합니다. "다른 앱 위에 표시" 권한과 홈 화면 서비스는 빌드할 때 매니페스트에 저절로 들어갑니다 (`Editor/MascotAndroidBuild.cs`).
+**준비**
+- 위 **5. Build Android APK** 메뉴로 빌드하면 따로 할 일이 없습니다. 다른 방법으로 빌드한다면 먼저 `Tools > Hoshino Mascot > 4. Apply Android Settings`를 누르세요. 두 메뉴 모두 아래를 맞춥니다.
+  - **Preserve Framebuffer Alpha**를 켭니다. 꺼져 있으면 캐릭터 주변이 검게 나옵니다.
+  - Unity 2023 이상은 **Application Entry Point**를 **Activity**로 바꿉니다 (홈 화면 띄우기가 쓰는 방식).
+  - Unity 6 이상은 시작 화면(Unity 로고)을 끕니다. 켜 두면 홈 화면에 띄울 때마다 로고가 잠깐 홈 화면 위에 나옵니다. (Unity 2022 Personal은 끌 수 없습니다)
+- "다른 앱 위에 표시" 권한과 홈 화면 서비스는 빌드할 때 매니페스트에 저절로 들어갑니다 (`Editor/MascotAndroidBuild.cs`).
 
 **쓰는 법**
 - 앱에서 호시노를 길게 눌러 **홈 화면에 띄우기**

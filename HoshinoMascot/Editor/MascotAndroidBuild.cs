@@ -1,4 +1,3 @@
-#if UNITY_ANDROID
 using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -12,7 +11,8 @@ namespace HoshinoMascot.EditorTools
     /// <summary>
     /// Android로 빌드할 때 홈 화면 띄우기(MascotOverlayService)에 필요한 권한과 서비스를
     /// 만들어진 AndroidManifest.xml에 넣습니다. 프로젝트의 매니페스트 파일은 건드리지 않습니다.
-    /// (Android Build Support가 설치되어 있고 빌드 대상이 Android일 때만 컴파일됩니다)
+    /// (IPostGenerateGradleAndroidProject는 Unity 에디터 기본 기능이라 Android 모듈이 없어도 컴파일됩니다.
+    ///  빌드 대상이 Windows인 채로 5번 메뉴를 눌러도 이 처리가 빠지지 않습니다)
     /// </summary>
     class MascotAndroidBuild : IPostGenerateGradleAndroidProject
     {
@@ -119,4 +119,3 @@ namespace HoshinoMascot.EditorTools
         }
     }
 }
-#endif

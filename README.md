@@ -18,7 +18,7 @@ Android/iOS로 빌드하면 휴대폰에서도 앱으로 돌아가고 (배경 �
 1. 팬메이드 모델 준비 (PMX, FBX 등). 이용 규약에서 개조와 형식 변환이 되는지 확인
 2. Blender + MMD Tools로 `blender/sd_chibi.py` 실행 → SD 비율 FBX
 3. Unity(Built-In Render Pipeline)에 UniWindowController, lilToon(선택), `HoshinoMascot` 폴더를 넣고 `Tools > Hoshino Mascot` 메뉴로 설정
-4. Windows로 빌드해서 실행. 휴대폰은 Android/iOS로 빌드 ([모바일](HoshinoMascot/README.md#모바일-androidios))
+4. Windows로 빌드해서 실행. 휴대폰은 Android/iOS로 빌드 ([모바일](HoshinoMascot/README.md#모바일-androidios)). Android APK는 `Tools > Hoshino Mascot > 5. Build Android APK` 한 번으로 만들어집니다
 
 확인한 환경: Windows 11, Unity 6000.3.18f1, Blender 5.2.2, UniWindowController 0.9.8, lilToon 2.3.4
 (모바일과 Android 홈 화면 띄우기는 컴파일까지만 확인했고 실제 기기에서는 아직 확인하지 않았습니다)

@@ -2,6 +2,7 @@
 
 바탕화면 위에 캐릭터를 띄워 두는 Unity 프로젝트용 스크립트 모음입니다.
 배경은 투명하고 항상 맨 위에 떠 있으며, 캐릭터가 없는 곳은 클릭이 아래 창으로 통과합니다.
+같은 씬을 Android/iOS로 빌드하면 휴대폰 앱으로도 돌아갑니다. [모바일](#모바일-androidios)을 보세요.
 
 ## 할 수 있는 것
 
@@ -13,8 +14,19 @@
 | 말풍선 클릭 | 말풍선을 닫습니다. |
 | 가만히 두기 | 가끔 혼잣말을 하고, 돌아다니거나 앉아서 쉬고, 3분이 지나면 앉은 채로 꾸벅꾸벅 낮잠을 잡니다. |
 
+모바일에서는 터치로 합니다.
+
+| 조작 | 반응 |
+|---|---|
+| 탭 | 왼쪽 클릭과 같습니다. |
+| 끌기 | 들어서 옮기고, 휙 던질 수 있습니다. |
+| 길게 누르기 | 메뉴가 열립니다 (오른쪽 클릭 대신). iOS에는 종료가 없습니다. |
+| 두 손가락 벌리기/오므리기 | 크기를 바꿉니다. |
+| 뒤로 가기 (Android) | 메뉴가 열려 있으면 닫고, 아니면 인사하고 종료합니다. |
+| 앱으로 돌아오기 | 1분 넘게 나가 있었으면 다시 인사합니다. 3분 넘게 비워 두면 그동안 낮잠이 들어 있습니다. |
+
 - 켤 때 시간대(아침/낮/저녁/밤)에 맞는 인사를 합니다.
-- 머리가 마우스 커서를 따라봅니다.
+- 머리가 마우스 커서를 따라봅니다. 모바일에서는 손가락을 따라보다가, 손을 떼면 화면 앞(선생님)을 봅니다.
 - 크기와 위치는 다음에 켤 때도 기억합니다.
 - **애니메이션 파일이 없어도 움직입니다.** `MascotMotion`이 뼈를 직접 돌려서 졸리고 느긋한 호시노답게 움직입니다.
   - 서 있을 때: 구부정하게 고개를 갸웃하고 체중을 좌우로 옮기며 흔들흔들
@@ -29,9 +41,9 @@
 ## 준비물
 
 - **Unity 2022.3 LTS 이상** (Unity 6도 됩니다)
-- **Windows 10/11**
+- **Windows 10/11** (모바일로 빌드한다면 Android 또는 iOS 기기도)
 - 호시노 모델 (FBX, VRM, 또는 PMX를 FBX로 바꾼 것). 팬메이드 모델은 이용 규약을 꼭 확인하세요.
-- [UniWindowController](https://github.com/kirurobo/UniWindowController): 투명 창을 만들어 주는 무료 오픈소스 라이브러리 (MIT 라이선스)
+- [UniWindowController](https://github.com/kirurobo/UniWindowController): 투명 창을 만들어 주는 무료 오픈소스 라이브러리 (MIT 라이선스). Windows용이라 모바일에서는 쓰지 않습니다.
 
 ---
 
@@ -74,7 +86,7 @@ https://github.com/kirurobo/UniWindowController.git#upm
    - lilToon이 있으면 lilToon으로, 없으면 Standard로 만듭니다. lilToon일 때 머리카락·옷·피부에는 윤곽선과 그림자를 넣습니다.
    - lilToon을 나중에 설치했으면 이 메뉴를 한 번 더 누르세요.
 4. 메뉴 `Tools > Hoshino Mascot > 2. Make Selected Model a Mascot` 을 누릅니다.
-   - 마스코트 스크립트 4개(말풍선, 행동, 메뉴, 동작)가 붙고, 카메라가 투명 배경용으로 설정됩니다.
+   - 마스코트 스크립트 5개(말풍선, 행동, 메뉴, 동작, 모바일 화면)가 붙고, 카메라가 투명 배경용으로 설정됩니다.
    - 캐릭터 키가 화면 높이의 1/4쯤 되게 카메라 크기를 맞춥니다.
 
 ### 6. 투명 창 켜기
@@ -93,6 +105,29 @@ https://github.com/kirurobo/UniWindowController.git#upm
 `File > Build Settings` (Unity 6은 `File > Build Profiles`) → **Windows** → **Build** → 만들어진 `.exe` 실행.
 
 > **에디터의 Play 모드에서는 배경이 투명해지지 않습니다.** 클릭, 드래그, 말풍선, 메뉴 같은 동작 확인은 에디터에서 하고, 투명 창은 빌드해서 확인하세요.
+
+---
+
+## 모바일 (Android/iOS)
+
+휴대폰은 앱이 다른 앱이나 홈 화면 위에 투명하게 떠 있을 수 없습니다 (iOS는 아예 막혀 있고, Android는 "다른 앱 위에 표시" 권한과 네이티브 플러그인이 따로 필요합니다).
+그래서 모바일에서는 **앱 화면에 배경을 깔고 그 위에서** 호시노가 돌아다닙니다. 행동, 말풍선, 표정, 낮잠은 데스크톱과 같습니다.
+
+### 빌드
+1. 위 1~5단계는 그대로 합니다. 6단계(UniWindowController)는 모바일만 쓴다면 건너뛰어도 됩니다.
+   - 씬에 UniWindowController가 있어도 됩니다. 모바일 빌드에서는 그 스크립트가 빠지고, 실행할 때 로그에 스크립트가 없다는 경고만 뜹니다.
+2. Unity Hub에서 쓰는 Unity 버전에 **Android Build Support** (또는 **iOS Build Support**) 모듈을 추가합니다.
+3. `File > Build Profiles` (Unity 2022는 `File > Build Settings`) → **Android** (또는 **iOS**) → **Switch Platform**
+4. Android: 휴대폰의 개발자 옵션에서 USB 디버깅을 켜고 연결한 뒤 **Build And Run**. 또는 **Build**로 만든 `.apk`를 휴대폰에 옮겨 설치합니다.
+   iOS: **Build**로 Xcode 프로젝트를 만들고, Mac의 Xcode에서 서명한 뒤 기기에 설치합니다.
+
+> 에디터에서 터치를 미리 보려면 Game 창 왼쪽 위 드롭다운에서 **Simulator**를 고르세요 (Device Simulator). 마우스가 터치처럼 동작해서 탭, 끌기, 길게 누르기, 노치를 피하는 배치를 확인할 수 있습니다. 두 손가락 핀치는 실제 기기에서 확인하세요.
+
+### 화면 설정 (Mascot Mobile)
+모바일에서만 동작하고, 데스크톱에서는 아무 일도 하지 않습니다. 컴포넌트가 없으면 모바일에서 기본값으로 저절로 붙습니다.
+- `Background Color`: 배경색 (기본은 연한 하늘색)
+- `Background Image`: 배경 그림. 그림 파일을 Assets에 드래그해서 여기에 넣으면 화면을 꽉 채우게 깔립니다. 화면을 돌려도 맞춰집니다.
+- `Keep Screen On`: 화면이 저절로 꺼지지 않게 합니다 (배터리를 더 씁니다).
 
 ---
 
@@ -125,6 +160,9 @@ Animator에 Animator Controller를 넣으면 `MascotMotion`은 저절로 꺼집�
 
 **Mascot Controller**
 - `Ground Offset Pixels`: 바닥 높이. 작업 표시줄 위에 서게 하려면 작업 표시줄 높이(보통 48)로.
+- `Mobile Ground Offset Pixels`: 모바일의 바닥 높이. 홈 표시줄·내비게이션 바 위에서부터 잽니다 (단위 dp).
+- `Long Press Seconds`: 모바일에서 메뉴가 열리기까지 누르고 있는 시간
+- `Pinch To Resize`: 모바일에서 두 손가락으로 크기 바꾸기
 - `Model Yaw Offset`: 모델이 뒤돌아 있으면 `180`
 - `Sleep After Seconds`: 몇 초 동안 안 건드리면 잘지 (0이면 안 잠)
 - `Chatter Seconds Range`: 혼잣말 간격
@@ -143,9 +181,13 @@ Animator에 Animator Controller를 넣으면 `MascotMotion`은 저절로 꺼집�
 **Mascot Speech**
 - 상황별 대사 목록을 마음대로 고치거나 늘릴 수 있습니다.
 - 말풍선 색, 글자 크기, 표시 시간
+- `Font`: 말풍선과 메뉴 글꼴(TTF). 비워 두면 OS 글꼴(맑은 고딕 등)을 씁니다.
 
 **Mascot Menu**
 - 메뉴 색, 크기, 크게/작게 배율
+- `Touch Item Height`: 모바일에서 메뉴 항목 높이 (손가락으로 누르기 좋게 더 높습니다)
+
+**Mascot Mobile**: 위 [화면 설정](#화면-설정-mascot-mobile)을 보세요.
 
 > 대사 기본값은 컴포넌트를 처음 붙일 때만 들어갑니다. 코드를 고친 뒤 새 기본값을 쓰고 싶으면 컴포넌트 이름 옆 ⋮ 메뉴에서 **Reset**을 누르세요.
 
@@ -177,6 +219,13 @@ Animator에 Animator Controller를 넣으면 `MascotMotion`은 저절로 꺼집�
 
 **종료는 어떻게 하나요?**
 - 캐릭터 오른쪽 클릭 → **종료**. 창에 포커스가 있을 때는 `Alt + F4`도 됩니다.
+- Android는 캐릭터를 길게 눌러 **종료**하거나 뒤로 가기 버튼. iOS는 다른 앱처럼 홈으로 나가면 됩니다.
+
+**모바일에서 한글이 네모(□)로 나와요**
+- 기기에 맞는 한글 글꼴을 못 찾은 것입니다. 한글 TTF 글꼴(예: 무료인 [Noto Sans KR](https://fonts.google.com/noto/specimen/Noto+Sans+KR))을 Assets에 넣고 `Mascot Speech > Font`에 넣으세요.
+
+**모바일에서 캐릭터가 화면 아래에 묻히거나 너무 떠 있어요**
+- `Mascot Controller > Mobile Ground Offset Pixels`를 조절하세요.
 
 ---
 
@@ -188,10 +237,11 @@ HoshinoMascot/
 │  ├─ MascotController.cs   행동 (대기, 걷기, 앉기, 들기, 떨어지기, 낮잠), 클릭과 드래그
 │  ├─ MascotMotion.cs       애니메이션 파일 없이 뼈를 직접 움직이는 동작과 표정
 │  ├─ MascotSpeech.cs       말풍선과 대사
-│  ├─ MascotMenu.cs         오른쪽 클릭 메뉴
+│  ├─ MascotMenu.cs         오른쪽 클릭(모바일은 길게 누르기) 메뉴
+│  ├─ MascotMobile.cs       모바일 화면 설정 (배경, 화면 꺼짐)
 │  ├─ MascotLookAt.cs       커서 따라보기 (자동으로 붙음)
-│  ├─ MascotInput.cs        마우스 입력 (클릭 통과 상태에서도 커서 위치를 읽음)
-│  └─ MascotUiSkin.cs       말풍선과 메뉴의 글꼴, 텍스처 생성
+│  ├─ MascotInput.cs        마우스·터치 입력 (클릭 통과 상태에서도 커서 위치를 읽음)
+│  └─ MascotUiSkin.cs       말풍선과 메뉴의 글꼴, 텍스처 생성, 화면 배율과 안전 영역
 └─ Editor/
    ├─ MascotSetup.cs                  Tools > Hoshino Mascot 메뉴
    └─ MascotMaterialPostprocessor.cs  MMD 모델 텍스처 연결 (메뉴 3에서 씀)

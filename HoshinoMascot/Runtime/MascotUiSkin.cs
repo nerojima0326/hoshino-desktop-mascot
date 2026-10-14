@@ -8,17 +8,62 @@ namespace HoshinoMascot
     /// </summary>
     public static class MascotUiSkin
     {
-        static readonly string[] FontNames = { "Malgun Gothic", "맑은 고딕", "Apple SD Gothic Neo", "Segoe UI", "Arial" };
+        // 한글이 들어 있는 글꼴을 앞에 둡니다 (Windows, macOS·iOS, Android 순)
+        static readonly string[] FontNames =
+        {
+            "Malgun Gothic", "맑은 고딕", "Apple SD Gothic Neo", "AppleSDGothicNeo-Regular",
+            "Noto Sans CJK KR", "Noto Sans KR", "NotoSansCJK-Regular", "Segoe UI", "Roboto", "Arial",
+        };
         static Font font;
 
-        /// <summary>Windows 화면 배율 (100% = 1). 픽셀 단위 설정값에 곱해서 씁니다.</summary>
-        public static float Scale => Screen.dpi > 0f ? Mathf.Max(1f, Screen.dpi / 96f) : 1f;
+        /// <summary>
+        /// 화면 배율. 픽셀 단위 설정값에 곱해서 씁니다.
+        /// Windows는 96dpi가 100%이고, 모바일은 160dpi가 기준(dp)입니다.
+        /// </summary>
+        public static float Scale
+        {
+            get
+            {
+                bool mobile = MascotInput.IsMobile;
+                float dpi = UnityEngine.Device.Screen.dpi;
+                if (dpi > 0f) return Mathf.Max(1f, dpi / (mobile ? 160f : 96f));
+                // dpi를 못 읽는 기기는 화면 짧은 변을 360dp로 봅니다
+                return mobile ? Mathf.Max(1f, Mathf.Min(Screen.width, Screen.height) / 360f) : 1f;
+            }
+        }
 
-        /// <summary>한글이 나오는 OS 글꼴 (맑은 고딕)</summary>
+        /// <summary>
+        /// 노치, 둥근 모서리, 홈 표시줄을 뺀 영역 (Unity 화면 좌표, 왼쪽 아래가 원점).
+        /// 데스크톱에서는 화면 전체입니다.
+        /// </summary>
+        public static Rect SafeArea
+        {
+            get
+            {
+                Rect area = UnityEngine.Device.Screen.safeArea;
+                return area.width > 0f && area.height > 0f ? area : new Rect(0f, 0f, Screen.width, Screen.height);
+            }
+        }
+
+        /// <summary>SafeArea를 GUI 좌표(위쪽이 0)로 바꾼 것</summary>
+        public static Rect SafeGuiRect
+        {
+            get
+            {
+                Rect area = SafeArea;
+                return new Rect(area.xMin, Screen.height - area.yMax, area.width, area.height);
+            }
+        }
+
+        /// <summary>인스펙터에서 고른 글꼴 (MascotSpeech.font). 없으면 OS 글꼴을 씁니다.</summary>
+        public static Font CustomFont { get; set; }
+
+        /// <summary>한글이 나오는 글꼴 (고른 글꼴이 없으면 맑은 고딕 같은 OS 글꼴)</summary>
         public static Font UiFont
         {
             get
             {
+                if (CustomFont != null) return CustomFont;
                 if (font == null) font = Font.CreateDynamicFontFromOSFont(FontNames, 16);
                 return font;
             }

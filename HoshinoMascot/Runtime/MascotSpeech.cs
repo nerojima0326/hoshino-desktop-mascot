@@ -119,6 +119,8 @@ namespace HoshinoMascot
         };
 
         [Header("말풍선 모양 (100% 배율 기준 픽셀)")]
+        [Tooltip("말풍선과 메뉴에 쓸 글꼴 (TTF). 비워 두면 OS 글꼴(맑은 고딕 등)을 씁니다. 한글이 네모로 나오면 한글 글꼴을 넣으세요.")]
+        public Font font;
         public int fontSize = 16;
         public float maxWidth = 260f;
         public Color fillColor = Color.white;
@@ -155,7 +157,11 @@ namespace HoshinoMascot
         /// <summary>글자가 아직 하나씩 나타나는 중인지 (입을 움직일 때 씁니다)</summary>
         public bool IsTalking => IsShowing && Time.time - shownAt < text.Length / Mathf.Max(1f, charactersPerSecond);
 
-        void Awake() => controller = GetComponent<MascotController>();
+        void Awake()
+        {
+            controller = GetComponent<MascotController>();
+            if (font != null) MascotUiSkin.CustomFont = font;
+        }
 
         void OnDestroy() => DestroyTextures();
 
@@ -218,11 +224,12 @@ namespace HoshinoMascot
             float tailWidth = TailWidth * scale;
             float tailHeight = TailHeight * scale;
 
-            // 머리 위에 띄우되 화면 밖으로 나가지 않게 합니다 (GUI 좌표는 위쪽이 0)
+            // 머리 위에 띄우되 화면(휴대폰은 노치를 뺀 곳) 밖으로 나가지 않게 합니다 (GUI 좌표는 위쪽이 0)
             Vector2 anchor = controller.BubbleAnchorScreen;
             float anchorY = Screen.height - anchor.y;
-            float x = Mathf.Clamp(anchor.x - width * 0.5f, 4f, Mathf.Max(4f, Screen.width - width - 4f));
-            float y = Mathf.Clamp(anchorY - height - tailHeight, 4f, Mathf.Max(4f, Screen.height - height - tailHeight - 4f));
+            Rect safe = MascotUiSkin.SafeGuiRect;
+            float x = Mathf.Clamp(anchor.x - width * 0.5f, safe.xMin + 4f, Mathf.Max(safe.xMin + 4f, safe.xMax - width - 4f));
+            float y = Mathf.Clamp(anchorY - height - tailHeight, safe.yMin + 4f, Mathf.Max(safe.yMin + 4f, safe.yMax - height - tailHeight - 4f));
             bubbleRect = new Rect(x, y, width, height);
 
             Event current = Event.current;

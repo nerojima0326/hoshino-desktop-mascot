@@ -3,7 +3,7 @@ using UnityEngine;
 namespace HoshinoMascot
 {
     /// <summary>
-    /// 머리와 눈이 마우스 커서를 따라가게 합니다.
+    /// 머리와 눈이 마우스 커서(모바일은 손가락)를 따라가게 합니다.
     /// 휴머노이드 모델이면 MascotController가 Animator 오브젝트에 자동으로 붙입니다.
     /// Animator Controller의 레이어 설정(톱니바퀴)에서 IK Pass를 켜야 동작합니다.
     /// </summary>
@@ -41,7 +41,7 @@ namespace HoshinoMascot
             currentWeight = Mathf.MoveTowards(currentWeight, looking ? weight : 0f, Time.deltaTime * 2f);
 
             // 커서보다 조금 화면 앞쪽을 보게 해서, 모니터 앞의 선생님을 보는 느낌을 냅니다
-            Vector3 target = controller.CursorWorld - controller.TargetCamera.transform.forward * (controller.Height * 1.5f);
+            Vector3 target = controller.LookTargetWorld - controller.TargetCamera.transform.forward * (controller.Height * 1.5f);
             if (!initialized)
             {
                 lookPosition = target;

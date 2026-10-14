@@ -58,6 +58,7 @@ namespace HoshinoMascot.EditorTools
             AddIfMissing<MascotController>(model);
             AddIfMissing<MascotMenu>(model);
             AddIfMissing<MascotMotion>(model);
+            AddIfMissing<MascotMobile>(model);
 
             Undo.RecordObject(model.transform, "Place Mascot");
             model.transform.position = Vector3.zero;
@@ -71,10 +72,11 @@ namespace HoshinoMascot.EditorTools
 
             EditorUtility.DisplayDialog(Title,
                 "마스코트 컴포넌트를 붙이고 카메라를 설정했어요.\n\n" +
-                "남은 일:\n" +
+                "남은 일 (Windows):\n" +
                 "1. UniWindowController 프리팹을 씬에 추가\n" +
                 "2. Is Transparent, Is Topmost, Should Fit Monitor 체크\n" +
-                "3. Windows로 빌드해서 실행 (에디터에서는 배경이 투명해지지 않아요)",
+                "3. Windows로 빌드해서 실행 (에디터에서는 배경이 투명해지지 않아요)\n\n" +
+                "모바일(Android/iOS)은 이대로 빌드하면 됩니다. 배경은 Mascot Mobile에서 바꿔요.",
                 "확인");
         }
 

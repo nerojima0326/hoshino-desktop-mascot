@@ -1,10 +1,14 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using UnityEditor;
+using UnityEditor.Build.Reporting;
+using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.SceneManagement;
 using Object = UnityEngine.Object;
 
 namespace HoshinoMascot.EditorTools
@@ -58,6 +62,8 @@ namespace HoshinoMascot.EditorTools
             AddIfMissing<MascotController>(model);
             AddIfMissing<MascotMenu>(model);
             AddIfMissing<MascotMotion>(model);
+            AddIfMissing<MascotMobile>(model);
+            AddIfMissing<MascotOverlay>(model);
 
             Undo.RecordObject(model.transform, "Place Mascot");
             model.transform.position = Vector3.zero;
@@ -71,11 +77,167 @@ namespace HoshinoMascot.EditorTools
 
             EditorUtility.DisplayDialog(Title,
                 "마스코트 컴포넌트를 붙이고 카메라를 설정했어요.\n\n" +
-                "남은 일:\n" +
+                "남은 일 (Windows):\n" +
                 "1. UniWindowController 프리팹을 씬에 추가\n" +
                 "2. Is Transparent, Is Topmost, Should Fit Monitor 체크\n" +
-                "3. Windows로 빌드해서 실행 (에디터에서는 배경이 투명해지지 않아요)",
+                "3. Windows로 빌드해서 실행 (에디터에서는 배경이 투명해지지 않아요)\n\n" +
+                "모바일(Android/iOS)은 이대로 빌드하면 됩니다. 배경은 Mascot Mobile에서 바꿔요.\n" +
+                "Android 홈 화면에 띄우려면 4. Apply Android Settings 도 눌러 주세요.",
                 "확인");
+        }
+
+        [MenuItem("Tools/Hoshino Mascot/4. Apply Android Settings")]
+        static void ApplyAndroidSettings()
+        {
+            EditorUtility.DisplayDialog(Title,
+                "Android 설정을 바꿨어요.\n\n" + ApplyAndroidPlayerSettings() +
+                "\n빌드할 때 \"다른 앱 위에 표시\" 권한과 홈 화면 서비스가 저절로 들어갑니다.",
+                "확인");
+        }
+
+        /// <summary>홈 화면 띄우기에 필요한 Player Settings를 맞추고, 무엇을 바꿨는지 돌려줍니다.</summary>
+        static string ApplyAndroidPlayerSettings()
+        {
+            // 홈 화면에 띄웠을 때 캐릭터가 없는 곳이 투명해야 홈 화면이 보입니다
+            PlayerSettings.preserveFramebufferAlpha = true;
+            string changes = "- Preserve Framebuffer Alpha: 켬 (홈 화면에 띄울 때 배경을 투명하게)\n";
+            if (UseActivityEntryPoint()) changes += "- Application Entry Point: Activity (홈 화면 띄우기가 쓰는 방식)\n";
+#if UNITY_6000_0_OR_NEWER
+            // 켜 두면 홈 화면에 띄울 때마다 Unity 로고가 홈 화면 위에 나옵니다 (Unity 6부터는 누구나 끌 수 있습니다)
+            if (PlayerSettings.SplashScreen.show)
+            {
+                PlayerSettings.SplashScreen.show = false;
+                changes += "- 시작 화면(Unity 로고): 끔 (Windows 빌드도 같이 꺼집니다)\n";
+            }
+#endif
+            return changes;
+        }
+
+        const string ApkPathKey = "HoshinoMascot.ApkPath";
+
+        /// <summary>
+        /// Android 설정 맞추기, 빌드 대상 바꾸기, APK 빌드를 한 번에 합니다.
+        /// 휴대폰이 USB로 연결되어 있으면 빌드한 뒤 바로 설치할 수도 있습니다.
+        /// </summary>
+        [MenuItem("Tools/Hoshino Mascot/5. Build Android APK")]
+        static void BuildAndroidApk()
+        {
+            if (!BuildPipeline.IsBuildTargetSupported(BuildTargetGroup.Android, BuildTarget.Android))
+            {
+                EditorUtility.DisplayDialog(Title,
+                    "Android Build Support가 설치되어 있지 않아요.\n\n" +
+                    "Unity Hub > Installs > 이 Unity 버전의 ⚙ > Add modules > Android Build Support\n" +
+                    "(그 아래 OpenJDK, Android SDK & NDK Tools도 체크)를 설치하고 Unity를 다시 켜 주세요.",
+                    "확인");
+                return;
+            }
+
+            string[] scenes = ScenesToBuild();
+            if (scenes == null) return;
+
+            int choice = EditorUtility.DisplayDialogComplex(Title,
+                "Android용 APK를 만들어요.\n\n" +
+                "휴대폰을 USB로 연결하고 USB 디버깅을 켜 두었으면, 만든 뒤 바로 설치할 수 있어요.\n" +
+                "처음 빌드는 10분 넘게 걸릴 수 있어요.",
+                "APK만 만들기", "취소", "만들고 휴대폰에 설치");
+            if (choice == 1) return;
+            bool install = choice == 2;
+
+            string lastPath = EditorPrefs.GetString(ApkPathKey, "");
+            string path = EditorUtility.SaveFilePanel("APK 저장 위치",
+                string.IsNullOrEmpty(lastPath) ? "" : Path.GetDirectoryName(lastPath),
+                string.IsNullOrEmpty(lastPath) ? "Hoshino.apk" : Path.GetFileName(lastPath),
+                "apk");
+            if (string.IsNullOrEmpty(path)) return;
+            EditorPrefs.SetString(ApkPathKey, path);
+
+            ApplyAndroidPlayerSettings();
+            EditorUserBuildSettings.buildAppBundle = false; // 스토어용 .aab가 아니라 바로 설치할 수 있는 .apk로
+            if (EditorUserBuildSettings.activeBuildTarget != BuildTarget.Android)
+                EditorUserBuildSettings.SwitchActiveBuildTarget(BuildTargetGroup.Android, BuildTarget.Android);
+
+            BuildReport report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
+            {
+                scenes = scenes,
+                locationPathName = path,
+                target = BuildTarget.Android,
+                targetGroup = BuildTargetGroup.Android,
+                options = install ? BuildOptions.AutoRunPlayer : BuildOptions.None,
+            });
+
+            if (report.summary.result != BuildResult.Succeeded)
+            {
+                EditorUtility.DisplayDialog(Title,
+                    $"빌드가 실패했어요 ({report.summary.result}).\n\n" +
+                    "Console 창의 빨간 오류를 확인해 주세요." +
+                    (install ? "\n휴대폰 설치를 골랐다면 USB 연결과 USB 디버깅이 켜져 있는지도 확인해 주세요." : ""),
+                    "확인");
+                return;
+            }
+
+            double megabytes = File.Exists(path) ? new FileInfo(path).Length / (1024.0 * 1024.0) : 0.0;
+            EditorUtility.RevealInFinder(path);
+            EditorUtility.DisplayDialog(Title,
+                $"APK를 만들었어요 ({megabytes:0.0} MB).\n{path}\n\n" +
+                (install
+                    ? "휴대폰에 설치하고 실행했어요.\n"
+                    : "이 파일을 휴대폰에 옮겨서 열면 설치돼요. (처음에는 '출처를 알 수 없는 앱 설치'를 허용해야 해요)\n") +
+                "\n홈 화면에 띄우려면 앱에서 호시노를 길게 눌러 \"홈 화면에 띄우기\"를 고르세요.",
+                "확인");
+        }
+
+        /// <summary>빌드할 씬 목록. 지금 열린 씬에 호시노가 있으면 그 씬으로 시작합니다. 못 만들면 null.</summary>
+        static string[] ScenesToBuild()
+        {
+            // 빌드는 저장된 씬 파일로 하므로, 고친 내용이 있으면 저장할지 먼저 묻습니다
+            if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return null;
+
+            var scenes = new List<string>();
+            foreach (EditorBuildSettingsScene scene in EditorBuildSettings.scenes)
+            {
+                if (scene.enabled && !string.IsNullOrEmpty(scene.path)) scenes.Add(scene.path);
+            }
+
+            if (HasMascotInOpenScene())
+            {
+                string activePath = SceneManager.GetActiveScene().path;
+                if (string.IsNullOrEmpty(activePath))
+                {
+                    EditorUtility.DisplayDialog(Title, "호시노가 있는 씬을 먼저 저장해 주세요. (File > Save)", "확인");
+                    return null;
+                }
+                scenes.Remove(activePath);
+                scenes.Insert(0, activePath);
+            }
+
+            if (scenes.Count == 0)
+            {
+                EditorUtility.DisplayDialog(Title, "호시노를 넣은 씬을 열고 다시 눌러 주세요.", "확인");
+                return null;
+            }
+            return scenes.ToArray();
+        }
+
+        static bool HasMascotInOpenScene()
+        {
+#if UNITY_2023_1_OR_NEWER
+            return Object.FindAnyObjectByType<MascotController>() != null;
+#else
+            return Object.FindObjectOfType<MascotController>() != null;
+#endif
+        }
+
+        /// <summary>
+        /// Unity 2023.1 이상은 Android 실행 방식을 Activity와 GameActivity 중에서 고릅니다.
+        /// 홈 화면 띄우기는 Activity 방식의 Unity 플레이어를 쓰므로 Activity로 맞춥니다.
+        /// (그 전 버전에는 이 설정이 없어서 리플렉션으로 찾습니다)
+        /// </summary>
+        static bool UseActivityEntryPoint()
+        {
+            PropertyInfo property = typeof(PlayerSettings.Android).GetProperty("applicationEntry", BindingFlags.Public | BindingFlags.Static);
+            if (property == null || !property.PropertyType.IsEnum) return false;
+            property.SetValue(null, Enum.Parse(property.PropertyType, "Activity"));
+            return true;
         }
 
         static void AddIfMissing<T>(GameObject target) where T : Component

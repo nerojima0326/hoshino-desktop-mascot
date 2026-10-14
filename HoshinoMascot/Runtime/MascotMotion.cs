@@ -409,7 +409,7 @@ namespace HoshinoMascot
             {
                 // 커서보다 조금 화면 앞쪽을 보게 해서, 모니터 앞의 선생님을 보는 느낌을 냅니다
                 Camera targetCamera = controller.TargetCamera;
-                Vector3 point = controller.CursorWorld - targetCamera.transform.forward * (controller.Height * 1.5f);
+                Vector3 point = controller.LookTargetWorld - targetCamera.transform.forward * (controller.Height * 1.5f);
                 Vector3 local = transform.InverseTransformDirection(point - head.transform.position);
                 float yaw = Mathf.Atan2(local.x, local.z) * Mathf.Rad2Deg;
                 float pitch = -Mathf.Atan2(local.y, new Vector2(local.x, local.z).magnitude) * Mathf.Rad2Deg;

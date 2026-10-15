@@ -1,0 +1,126 @@
+# 호시노 마스코트 Android APK 클라우드 빌드 (GitHub Actions + GameCI)
+#
+# 이 파일은 호시노 모델이 들어 있는 "비공개" Unity 프로젝트 저장소의
+# .github/workflows/build-android-apk.yml 로 복사해서 씁니다. 사용법은 README의 "클라우드 빌드"를 보세요.
+#
+# - 휴대폰에서 GitHub 앱/웹 → Actions → "호시노 APK 빌드" → Run workflow 를 누르면
+#   20~40분 뒤 Releases에 Hoshino.apk 가 올라옵니다.
+# - 공개 저장소에서는 모델이 든 APK를 누구나 받을 수 있게 되므로, 비공개 저장소에서만 돕니다.
+# - 필요한 비밀값(Settings → Secrets and variables → Actions):
+#     UNITY_LICENSE  : PC의 C:\ProgramData\Unity\Unity_lic.ulf 파일 내용 전체
+#     UNITY_EMAIL    : Unity 계정 이메일
+#     UNITY_PASSWORD : Unity 계정 비밀번호
+# - 선택 변수(Variables): UNITY_PROJECT_PATH (Unity 프로젝트가 저장소 맨 위가 아닐 때, 예: MyProject)
+
+name: 호시노 APK 빌드
+
+on:
+  workflow_dispatch:
+    inputs:
+      updateScripts:
+        description: hoshino-desktop-mascot의 최신 스크립트로 바꿔서 빌드
+        type: boolean
+        default: true
+
+permissions:
+  contents: write # 서명 키 저장, Releases에 APK 올리기
+
+env:
+  PROJECT_PATH: ${{ vars.UNITY_PROJECT_PATH || '.' }}
+  SCRIPTS_REPOSITORY: nerojima0326/hoshino-desktop-mascot
+  KEYSTORE_FILE: hoshino.keystore
+  KEYSTORE_PASSWORD: hoshino-mascot
+  KEY_ALIAS: hoshino
+
+jobs:
+  build:
+    name: Android APK
+    # 공개 저장소에서는 돌지 않습니다 (모델이 든 APK가 공개되지 않게)
+    if: github.event.repository.private
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: 디스크 공간 확보 (Unity Android 이미지가 큽니다)
+        uses: jlumbroso/free-disk-space@v2
+        with:
+          large-packages: false
+          tool-cache: false
+
+      - name: 프로젝트 받기
+        uses: actions/checkout@v7
+        with:
+          lfs: true
+
+      - name: 서명 키 준비 (처음 한 번 만들어 저장소에 저장)
+        # 늘 같은 키로 서명해야 휴대폰에서 앱을 지우지 않고 새 APK로 업데이트할 수 있습니다
+        run: |
+          keystore="$PROJECT_PATH/$KEYSTORE_FILE"
+          if [ -f "$keystore" ]; then
+            echo "기존 서명 키를 씁니다."
+            exit 0
+          fi
+          keytool="$(command -v keytool || echo "$JAVA_HOME_17_X64/bin/keytool")"
+          "$keytool" -genkeypair -noprompt -storetype JKS -keystore "$keystore" -alias "$KEY_ALIAS" \
+            -storepass "$KEYSTORE_PASSWORD" -keypass "$KEYSTORE_PASSWORD" \
+            -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Hoshino Mascot"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f "$keystore"
+          git commit -m "APK 서명 키 추가 (자동)"
+          git push
+
+      - name: 최신 호시노 스크립트 받기
+        if: inputs.updateScripts
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ env.SCRIPTS_REPOSITORY }}
+          path: _hoshino-scripts
+
+      - name: 스크립트 덮어쓰기
+        if: inputs.updateScripts
+        # 프로젝트의 .meta 파일은 그대로 두고 코드만 바꿉니다
+        run: |
+          mkdir -p "$PROJECT_PATH/Assets/HoshinoMascot"
+          cp -R _hoshino-scripts/HoshinoMascot/. "$PROJECT_PATH/Assets/HoshinoMascot/"
+          rm -rf _hoshino-scripts
+
+      - name: Library 캐시 (두 번째 빌드부터 빨라집니다)
+        uses: actions/cache@v6
+        with:
+          path: ${{ env.PROJECT_PATH }}/Library
+          key: Library-Android-${{ hashFiles(format('{0}/Assets/**', env.PROJECT_PATH), format('{0}/Packages/**', env.PROJECT_PATH), format('{0}/ProjectSettings/**', env.PROJECT_PATH)) }}
+          restore-keys: Library-Android-
+
+      - name: APK 빌드
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          projectPath: ${{ env.PROJECT_PATH }}
+          targetPlatform: Android
+          buildName: Hoshino
+          buildMethod: HoshinoMascot.EditorTools.MascotSetup.BuildAndroidFromCommandLine
+          androidExportType: androidPackage
+          androidKeystoreName: ${{ env.KEYSTORE_FILE }}
+          androidKeystorePass: ${{ env.KEYSTORE_PASSWORD }}
+          androidKeyaliasName: ${{ env.KEY_ALIAS }}
+          androidKeyaliasPass: ${{ env.KEYSTORE_PASSWORD }}
+          versioning: None
+          allowDirtyBuild: true # 위에서 스크립트를 덮어써서 바뀐 상태로 빌드합니다
+
+      - name: Releases에 APK 올리기 (휴대폰에서 바로 받을 수 있게)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "apk-${{ github.run_number }}" build/Android/Hoshino.apk \
+            --title "호시노 APK #${{ github.run_number }}" \
+            --notes "휴대폰에서 Hoshino.apk를 눌러 받고 열면 설치됩니다. (처음에는 '출처를 알 수 없는 앱 설치'를 허용해야 해요)"
+
+      - name: 빌드 결과도 보관 (7일)
+        uses: actions/upload-artifact@v7
+        with:
+          name: Hoshino-apk
+          path: build/Android/Hoshino.apk
+          retention-days: 7

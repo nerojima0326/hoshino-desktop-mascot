@@ -12,6 +12,7 @@ Android/iOS로 빌드하면 휴대폰에서도 앱으로 돌아가고 (배경 �
 |---|---|
 | [HoshinoMascot/](HoshinoMascot/) | Unity 스크립트 (행동, 말풍선, 오른쪽 클릭·길게 누르기 메뉴, 모바일 화면, 설정 메뉴). 설치 순서는 [README](HoshinoMascot/README.md) |
 | [blender/](blender/) | 일반 비율 모델을 SD(치비) 비율로 바꾸고 Unity용 FBX로 내보내는 Blender 스크립트. 사용법은 [README](blender/README.md) |
+| [ci/](ci/) | 휴대폰에서 버튼만 눌러 APK를 만드는 GitHub Actions 빌드 (비공개 프로젝트 저장소에 넣어서 씀). [사용법](HoshinoMascot/README.md#휴대폰에서-apk-받기-클라우드-빌드-선택) |
 
 ## 흐름
 

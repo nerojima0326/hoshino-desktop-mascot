@@ -127,6 +127,29 @@ Android는 "다른 앱 위에 표시" 권한으로 [홈 화면에 띄울](#andro
 
 > 에디터에서 터치를 미리 보려면 Game 창 왼쪽 위 드롭다운에서 **Simulator**를 고르세요 (Device Simulator). 마우스가 터치처럼 동작해서 탭, 끌기, 길게 누르기, 노치를 피하는 배치를 확인할 수 있습니다. 두 손가락 핀치는 실제 기기에서 확인하세요.
 
+### 휴대폰에서 APK 받기 (클라우드 빌드, 선택)
+PC에서 한 번만 준비해 두면, 그다음부터는 **휴대폰에서 버튼만 눌러** GitHub가 APK를 만들어 줍니다.
+코드가 바뀌어도 빌드할 때 이 저장소의 최신 스크립트를 가져와서 넣으므로, PC에서 Unity를 다시 열 필요가 없습니다.
+
+> 호시노 모델이 든 Unity 프로젝트를 **비공개** GitHub 저장소에 올려야 합니다. 비공개라도 GitHub에 올리는 것이 그 모델의 이용 규약에 맞는지 먼저 확인하세요. 공개 저장소에서는 일부러 돌지 않게 막아 두었습니다 (만든 APK를 누구나 받을 수 있게 되므로).
+
+**PC에서 한 번만**
+1. [GitHub Desktop](https://desktop.github.com)에서 `File > Add local repository` → Unity 프로젝트 폴더를 고르고 **create a repository**를 누릅니다. Git ignore는 **Unity**를 고르세요.
+2. **Publish repository**를 누를 때 **Keep this code private**가 체크되어 있는지 확인합니다.
+3. 그 비공개 저장소의 `Settings > Secrets and variables > Actions > New repository secret`에 세 가지를 넣습니다.
+   - `UNITY_LICENSE`: `C:\ProgramData\Unity\Unity_lic.ulf` 파일을 메모장으로 열어 내용 전체 (Unity Hub에 로그인해 두면 있는 파일)
+   - `UNITY_EMAIL`, `UNITY_PASSWORD`: Unity 계정 이메일과 비밀번호
+4. 이 저장소의 [`ci/build-android-apk.yml`](../ci/build-android-apk.yml)을 비공개 저장소의 `.github/workflows/build-android-apk.yml`로 넣습니다.
+
+**휴대폰에서**
+1. GitHub 앱(또는 웹)에서 비공개 저장소 → **Actions** → **호시노 APK 빌드** → **Run workflow**
+2. 20~40분 뒤 그 저장소의 **Releases**에 올라온 `Hoshino.apk`를 눌러 받고 열면 설치됩니다.
+
+- 처음 빌드할 때 서명 키(`hoshino.keystore`)를 만들어 저장소에 저장합니다. 늘 같은 키로 서명하므로 새 APK를 설치하면 앱을 지우지 않고 업데이트됩니다.
+- Unity 프로젝트가 저장소 맨 위가 아니라 하위 폴더에 있으면, `Settings > Secrets and variables > Actions > Variables`에 `UNITY_PROJECT_PATH`(예: `MyProject`)를 넣으세요.
+- 비공개 저장소의 GitHub Actions는 무료 계정 기준 한 달 2,000분까지 무료입니다. 한 번에 30~40분쯤 걸립니다.
+- 빌드는 [GameCI](https://game-ci.com)로 하고, 호시노가 있는 씬을 저절로 찾아서 빌드합니다 (`MascotSetup.BuildAndroidFromCommandLine`).
+
 ### 화면 설정 (Mascot Mobile)
 모바일에서만 동작하고, 데스크톱에서는 아무 일도 하지 않습니다. 컴포넌트가 없으면 모바일에서 기본값으로 저절로 붙습니다.
 - `Background Color`: 배경색 (기본은 연한 하늘색)
@@ -288,7 +311,7 @@ HoshinoMascot/
 ├─ Plugins/Android/
 │  └─ MascotOverlayService.java  홈 화면 창을 띄우는 Android 서비스 (Unity를 별도 프로세스에서 하나 더 띄움)
 └─ Editor/
-   ├─ MascotSetup.cs                  Tools > Hoshino Mascot 메뉴
+   ├─ MascotSetup.cs                  Tools > Hoshino Mascot 메뉴, 클라우드 빌드용 APK 빌드 함수
    ├─ MascotAndroidBuild.cs           Android 빌드 때 권한과 서비스를 매니페스트에 넣음
    └─ MascotMaterialPostprocessor.cs  MMD 모델 텍스처 연결 (메뉴 3에서 씀)
 ```

@@ -192,30 +192,152 @@ namespace HoshinoMascot.EditorTools
             // 빌드는 저장된 씬 파일로 하므로, 고친 내용이 있으면 저장할지 먼저 묻습니다
             if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return null;
 
-            var scenes = new List<string>();
-            foreach (EditorBuildSettingsScene scene in EditorBuildSettings.scenes)
-            {
-                if (scene.enabled && !string.IsNullOrEmpty(scene.path)) scenes.Add(scene.path);
-            }
-
+            string first = null;
             if (HasMascotInOpenScene())
             {
-                string activePath = SceneManager.GetActiveScene().path;
-                if (string.IsNullOrEmpty(activePath))
+                first = SceneManager.GetActiveScene().path;
+                if (string.IsNullOrEmpty(first))
                 {
                     EditorUtility.DisplayDialog(Title, "호시노가 있는 씬을 먼저 저장해 주세요. (File > Save)", "확인");
                     return null;
                 }
-                scenes.Remove(activePath);
-                scenes.Insert(0, activePath);
             }
 
+            List<string> scenes = BuildScenes(first);
             if (scenes.Count == 0)
             {
                 EditorUtility.DisplayDialog(Title, "호시노를 넣은 씬을 열고 다시 눌러 주세요.", "확인");
                 return null;
             }
             return scenes.ToArray();
+        }
+
+        /// <summary>
+        /// Build Settings에 켜 둔 씬 목록에서 호시노가 있는 씬을 맨 앞에 둡니다.
+        /// first가 없으면 씬 파일에서 MascotController를 쓰는 씬을 찾습니다 (목록에 없어도 넣습니다).
+        /// </summary>
+        static List<string> BuildScenes(string first)
+        {
+            var scenes = new List<string>();
+            foreach (EditorBuildSettingsScene scene in EditorBuildSettings.scenes)
+            {
+                if (scene.enabled && !string.IsNullOrEmpty(scene.path)) scenes.Add(scene.path);
+            }
+
+            if (string.IsNullOrEmpty(first))
+            {
+                List<string> mascotScenes = FindMascotScenes();
+                first = scenes.Find(mascotScenes.Contains) ?? (mascotScenes.Count > 0 ? mascotScenes[0] : null);
+            }
+            if (!string.IsNullOrEmpty(first))
+            {
+                scenes.Remove(first);
+                scenes.Insert(0, first);
+            }
+            return scenes;
+        }
+
+        /// <summary>씬 파일(텍스트)에 MascotController 스크립트가 들어 있는 씬을 찾습니다.</summary>
+        static List<string> FindMascotScenes()
+        {
+            var found = new List<string>();
+            string scriptGuid = null;
+            foreach (string guid in AssetDatabase.FindAssets("MascotController t:MonoScript"))
+            {
+                var script = AssetDatabase.LoadAssetAtPath<MonoScript>(AssetDatabase.GUIDToAssetPath(guid));
+                if (script != null && script.GetClass() == typeof(MascotController))
+                {
+                    scriptGuid = guid;
+                    break;
+                }
+            }
+            if (scriptGuid == null) return found;
+
+            foreach (string guid in AssetDatabase.FindAssets("t:Scene", new[] { "Assets" }))
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                try
+                {
+                    if (File.ReadAllText(path).Contains("guid: " + scriptGuid)) found.Add(path);
+                }
+                catch (IOException)
+                {
+                    // 읽지 못한 씬은 건너뜁니다
+                }
+            }
+            return found;
+        }
+
+        /// <summary>
+        /// 화면 없이(-batchmode) Android APK를 만듭니다. GitHub Actions(GameCI unity-builder) 같은 클라우드 빌드에서 부릅니다.
+        /// 예) Unity -batchmode -quit -projectPath . -buildTarget Android
+        ///       -executeMethod HoshinoMascot.EditorTools.MascotSetup.BuildAndroidFromCommandLine -customBuildPath Build/Hoshino.apk
+        /// 서명 키는 -androidKeystoreName, -androidKeystorePass, -androidKeyaliasName, -androidKeyaliasPass로 받습니다 (없으면 디버그 키).
+        /// 끝나면 성공 0, 실패 1로 Unity를 종료합니다.
+        /// </summary>
+        public static void BuildAndroidFromCommandLine()
+        {
+            Dictionary<string, string> args = CommandLineArguments();
+            string path = args.TryGetValue("customBuildPath", out string customPath) && !string.IsNullOrEmpty(customPath)
+                ? customPath
+                : "Build/Android/Hoshino.apk";
+            if (!path.EndsWith(".apk", StringComparison.OrdinalIgnoreCase)) path = Path.Combine(path, "Hoshino.apk");
+            Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path)));
+
+            List<string> scenes = BuildScenes(null);
+            if (scenes.Count == 0)
+            {
+                Debug.LogError("[Hoshino Mascot] 빌드할 씬이 없습니다. 호시노를 넣은 씬(.unity)이 저장소에 올라가 있는지 확인해 주세요.");
+                EditorApplication.Exit(1);
+                return;
+            }
+            Debug.Log("[Hoshino Mascot] 빌드할 씬: " + string.Join(", ", scenes));
+
+            Debug.Log("[Hoshino Mascot] Android 설정\n" + ApplyAndroidPlayerSettings());
+            ApplyKeystore(args);
+            EditorUserBuildSettings.buildAppBundle = false; // 바로 설치할 수 있는 .apk
+            EditorUserBuildSettings.exportAsGoogleAndroidProject = false;
+
+            BuildReport report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
+            {
+                scenes = scenes.ToArray(),
+                locationPathName = path,
+                target = BuildTarget.Android,
+                targetGroup = BuildTargetGroup.Android,
+                options = BuildOptions.None,
+            });
+            Debug.Log($"[Hoshino Mascot] 빌드 결과: {report.summary.result} ({path})");
+            EditorApplication.Exit(report.summary.result == BuildResult.Succeeded ? 0 : 1);
+        }
+
+        /// <summary>-이름 값 형태의 명령줄 인자. 값이 없으면 빈 문자열입니다.</summary>
+        static Dictionary<string, string> CommandLineArguments()
+        {
+            var result = new Dictionary<string, string>();
+            string[] args = Environment.GetCommandLineArgs();
+            for (int i = 0; i < args.Length; i++)
+            {
+                if (!args[i].StartsWith("-")) continue;
+                bool hasValue = i + 1 < args.Length && !args[i + 1].StartsWith("-");
+                result[args[i].TrimStart('-')] = hasValue ? args[i + 1] : "";
+            }
+            return result;
+        }
+
+        // 늘 같은 키로 서명해야 휴대폰에서 앱을 지우지 않고 새 APK로 업데이트할 수 있습니다
+        static void ApplyKeystore(Dictionary<string, string> args)
+        {
+            if (!args.TryGetValue("androidKeystoreName", out string keystore) || string.IsNullOrEmpty(keystore)) return;
+            if (!File.Exists(keystore))
+            {
+                Debug.LogWarning("[Hoshino Mascot] 서명 키 파일이 없어서 디버그 키로 서명합니다: " + keystore);
+                return;
+            }
+            PlayerSettings.Android.useCustomKeystore = true;
+            PlayerSettings.Android.keystoreName = keystore;
+            if (args.TryGetValue("androidKeystorePass", out string keystorePass)) PlayerSettings.Android.keystorePass = keystorePass;
+            if (args.TryGetValue("androidKeyaliasName", out string aliasName)) PlayerSettings.Android.keyaliasName = aliasName;
+            if (args.TryGetValue("androidKeyaliasPass", out string aliasPass)) PlayerSettings.Android.keyaliasPass = aliasPass;
         }
 
         static bool HasMascotInOpenScene()
